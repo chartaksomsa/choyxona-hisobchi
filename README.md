@@ -1,32 +1,45 @@
-# Choyxona Hisobchi v4
+# Choyxona Hisobchi v4.1
 
 Mobil-birinchi cafe accounting PWA — React + Vite + Supabase + Tailwind.
 
-## v4 da nima yangilandi
+## v4.1 yangiliklari
 
-1. **Concurrency fix** — `transactions` jadval normallashtirildi (alohida `app_transactions` jadval). Endi 2 ta qurilmadan bir vaqtda yozsa, hech narsa yo'qolmaydi.
-2. **Offline mode** — internetsiz ishlaydi. Yozgan narsangiz queue ga tushadi va internet kelganida avtomatik yuboriladi. Header da Wi-Fi belgisi va kutayotgan yozuvlar soni ko'rsatiladi.
-3. **Realtime sync** — Telefondan yozsangiz, kompyuterda darhol ko'rinadi. Supabase Realtime channel.
-4. **Bundle splitting** — jsPDF va recharts kerak bo'lgandagina yuklanadi (Hisobotlar tabini ochganda). Birinchi yuklanish 250KB tezroq.
-5. **Chartlar** — Hisobotlar tabida pie chart (tushumlar/chiqimlar), kunlik chiziq grafik, kunlik sof natija (bar).
-6. **Plastik tushumi** — Endi har bir tushumda **Naqd / Plastik** tugmasi bor. Eski "plastik chiqim" usuli ham ishlashda davom etadi.
-7. **PDF Uzbek matn** — Maxsus harflar (curly quote, tire, ellipsis) endi PDFda buzilmaydi.
+1. **Telegram batafsil hisobotlar** — endi 5 turdagi hisobot:
+   - 🥤 Suvlar — qisqa
+   - 🥤 Suvlar — batafsil (qaysi suv qo'shildi, har bir suv bo'yicha sotuv/foyda)
+   - ☕ To'liq — qisqa
+   - ☕ To'liq — batafsil (har ishchi qancha oldi, har chiqim batafsil)
+   - 📋 Hammasi — har bir yozuv (vaqt belgisi bilan)
 
-### Qo'shimcha (foydalanuvchi so'rovi)
+2. **Ishchilar uchun ID/Kod** — har ishchiga `W001`, `ofitsant-1` kabi qisqa kod berish mumkin. Ro'yxatda, hisobotda, dropdownda ham ko'rinadi.
 
-A. **Ishchilar ID si** — Endi har bir ishchi unique ID ga ega. Ismni o'zgartirsangiz ham statistika va tarix saqlanadi.
-B. **Ishchilar to'liq CRUD** — Qo'shish, tahrirlash, o'chirish, lavozim qo'shish, faol/faolemas qilish. Har bir ishchining oylik tarixi alohida ko'rinadi.
-C. **Bosh sahifa kassa kartasi** — Plastik tushumi endi "Kunlik kassa balansi" kartasi ichida ko'rsatiladi (avval alohida edi). Buxgalteriya bo'yicha to'g'rirog'i.
+3. **Qarzlar Hisobot tabiga ko'chirildi** — bottom nav 6 ta tabga tushdi (qulayroq). Qarzlar Hisobot tabida burishtirilgan ko'rinishda.
 
-## Deploy qilish (3 qadam)
+4. **Print 80mm chek** — Hisobot tabida PDF yoniga **Chek (80mm)** tugmasi. Xprinter-style printerlarga to'g'ridan-to'g'ri chiqaradi (browserdagi Print dialog).
 
-### 1. Supabase'da DB ni yangilang
+5. **Ishchilar oyligi soddalashtirildi** — Chiqim → Ishchilar oyligi tabini ochsangiz, hamma faol ishchilarning ismi avtomatik chiqadi. Har birining yoniga summa yozib, tugmani bosish kifoya. Bonus: bugun ishchiga qancha to'langan bo'lsa, ko'rsatib turadi.
 
-Supabase loyihangiz **SQL Editor**ini oching va `supabase-schema.sql` faylining mazmunini yopishtiring va **Run** ni bosing.
+6. **Long Telegram messages** — Agar hisobot 4096 belgidan oshsa, qism-qism yuboriladi (avtomatik).
 
-> Idempotent — agar v3 dan kelayotgan bo'lsangiz, eski jsonb dagi tranzaksiyalar avtomatik yangi jadvalga ko'chiriladi. Hech narsa yo'qolmaydi.
+## v4.0 dagilar (avvalgi versiyadan)
 
-### 2. Vercel da ENV variables (agar avval qo'shilmagan bo'lsa)
+1. Concurrency fix — alohida `app_transactions` jadval
+2. Offline mode — internet yo'q paytda queue, kelgach avtomatik
+3. Realtime sync — qurilmalar orasida darhol yangilanish
+4. Bundle splitting — kerak bo'lgandagina yuklash
+5. Vizualizatsiya — pie/line/bar chartlar
+6. Plastik tushum — har tushumda Naqd/Plastik tugmasi
+7. PDF Uzbek matn fix
+
+## Deploy qilish
+
+### 1. Supabase'da DB ni yangilang (faqat birinchi marta)
+
+Supabase **SQL Editor** → `supabase-schema.sql` mazmunini yopishtiring → **Run**.
+
+> Idempotent — agar v3/v4.0 dan kelayotgan bo'lsangiz, hech narsa yo'qolmaydi.
+
+### 2. Vercel ENV variables (faqat birinchi marta)
 
 ```
 VITE_SUPABASE_URL=https://xxx.supabase.co
@@ -35,30 +48,25 @@ VITE_SUPABASE_ANON_KEY=eyJ...
 
 ### 3. Deploy
 
-```bash
-npm install
-npm run build
-# yoki to'g'ridan-to'g'ri vercel ga push qiling
-```
+GitHub'da kodni yangilang → Vercel avtomatik build qiladi.
 
-## Lokalda ishga tushirish
+## Lokalda
 
 ```bash
 npm install
 cp .env.example .env.local
-# .env.local ga supabase URL va keyni qo'ying
+# .env.local'ni to'ldiring
 npm run dev
 ```
 
-## Public papkadagi ikonalar
+## Print 80mm haqida
 
-`public/` papkasi bo'sh — agar avvalgi versiyangizdan icon-192.png, icon-512.png, icon-512-maskable.png, favicon.svg, apple-touch-icon.png lar bor bo'lsa, ularni shu yerga ko'chiring.
+Print tugmasi bosilganda yangi oynada chek-shaklidagi hisobot ochiladi va brauzerning Print dialog'i avtomatik ishga tushadi. **Print sozlamasida:**
 
-## Migratsiya v3 → v4
+- Printer: Xprinter (yoki sizdagi 80mm thermal printer)
+- Paper size: 80mm × auto (yoki "Receipt")
+- Margin: None / Minimum
+- Headers and footers: Off
 
-Hech narsa qilish kerak emas — `supabase-schema.sql` ni run qilsangiz tayyor:
+Agar pop-up bloklansa, brauzer sozlamalaridan ruxsat berishingiz kerak.
 
-- `app_data.transactions` (jsonb) ichidagi eski yozuvlar `app_transactions` jadvalga ko'chiriladi
-- Eski `endCash` field hali ham qabul qilinadi (yangi nomi `countedCash`)
-- Eski "isCashless" plastik chiqim usuli yangi paymentMethod bilan birga ishlaydi
-- Eski tranzaksiyalarda `payeeWorkerId` yo'q — ism orqali ishchiga bog'lanadi (legacy fallback)

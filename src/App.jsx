@@ -7,7 +7,7 @@ import {
   Eye, EyeOff, Loader2, BookOpen, CheckCircle2, Users,
   HandCoins, FileDown, LogOut, UserCircle, Mail, Lock,
   Calendar as CalendarIcon, ArrowUpRight, ArrowDownLeft, Clock,
-  Wifi, WifiOff, RefreshCw, PieChart as PieChartIcon
+  Wifi, WifiOff, RefreshCw, PieChart as PieChartIcon, Printer, Hash
 } from "lucide-react";
 import {
   useCloud, supabase, setUserId, loadAll, sGet, sSet,
@@ -77,6 +77,28 @@ async function tgSend(token, chatId, text) {
     const data = await res.json();
     return { ok: data.ok, error: data.description };
   } catch (e) { return { ok: false, error: e.message }; }
+}
+// Uzun matnlar uchun (Telegram limiti 4096 belgi) — qatorlar bo'yicha ajratib yuboradi
+async function tgSendLong(token, chatId, text) {
+  const MAX = 3800; // xavfsiz limit
+  if (text.length <= MAX) return tgSend(token, chatId, text);
+  const parts = [];
+  let buf = '';
+  for (const line of text.split('\n')) {
+    if ((buf + line + '\n').length > MAX) {
+      parts.push(buf);
+      buf = line + '\n';
+    } else {
+      buf += line + '\n';
+    }
+  }
+  if (buf) parts.push(buf);
+  for (let i = 0; i < parts.length; i++) {
+    const r = await tgSend(token, chatId, parts[i] + (i < parts.length - 1 ? `\n<i>(${i+1}/${parts.length})</i>` : ''));
+    if (!r.ok) return r;
+    await new Promise(res => setTimeout(res, 350)); // rate-limit'ni hurmat qilish
+  }
+  return { ok: true };
 }
 async function tgGetMe(token) {
   try {
@@ -689,7 +711,8 @@ function ChoyxonaHisobchi({ userEmail }) {
           <DashboardTab date={selectedDate} categories={categories} transactions={dayTransactions}
             stats={dayStats} drinkStats={drinkDayStats} cashRegister={cashRegister}
             onSaveCash={saveCashRegister} tgConfig={tgConfig} drinks={drinks}
-            drinkDaily={drinkDaily} debtsStats={debtsStats} onToast={showToast} />
+            drinkDaily={drinkDaily} workers={workers} debts={debts}
+            debtsStats={debtsStats} onToast={showToast} />
         )}
         {activeTab === 'income' && (
           <IncomeTab date={selectedDate} categories={categories.income}
@@ -706,14 +729,12 @@ function ChoyxonaHisobchi({ userEmail }) {
             stats={drinkDayStats} onAdd={addDrink} onUpdate={updateDrink}
             onDelete={deleteDrink} onSaveDay={saveDrinkDayRecord} />
         )}
-        {activeTab === 'debts' && (
-          <DebtsTab debts={debts} stats={debtsStats}
-            onAdd={addDebt} onUpdate={updateDebt} onDelete={deleteDebt} onPayment={recordDebtPayment} />
-        )}
         {activeTab === 'reports' && (
           <ReportsTab categories={categories} transactions={transactions}
             drinkDaily={drinkDaily} drinks={drinks} cashRegister={cashRegister}
-            debts={debts} workers={workers} onToast={showToast} />
+            debts={debts} debtsStats={debtsStats} workers={workers}
+            onAddDebt={addDebt} onUpdateDebt={updateDebt} onDeleteDebt={deleteDebt} onPayDebt={recordDebtPayment}
+            onToast={showToast} />
         )}
         {activeTab === 'settings' && (
           <SettingsTab categories={categories} workers={workers} transactions={transactions}
@@ -725,13 +746,12 @@ function ChoyxonaHisobchi({ userEmail }) {
       </main>
 
       <nav className="fixed bottom-0 inset-x-0 bg-white border-t border-stone-200 z-30" style={{ boxShadow: '0 -2px 12px rgba(0,0,0,0.06)' }}>
-        <div className="max-w-4xl mx-auto grid grid-cols-7">
+        <div className="max-w-4xl mx-auto grid grid-cols-6">
           {[
             { id: 'dashboard', icon: Home, label: 'Bosh' },
             { id: 'income', icon: TrendingUp, label: 'Tushum' },
             { id: 'expense', icon: TrendingDown, label: 'Chiqim' },
             { id: 'drinks', icon: Package, label: 'Suvlar' },
-            { id: 'debts', icon: HandCoins, label: 'Qarzlar' },
             { id: 'reports', icon: BarChart3, label: 'Hisobot' },
             { id: 'settings', icon: SettingsIcon, label: 'Sozlama' },
           ].map(item => {
@@ -766,7 +786,7 @@ function ChoyxonaHisobchi({ userEmail }) {
 // ============================================================
 // DASHBOARD TAB — plastik kartochka kassa bilan birga (#C)
 // ============================================================
-function DashboardTab({ date, categories, transactions, stats, drinkStats, cashRegister, onSaveCash, tgConfig, drinks, drinkDaily, debtsStats, onToast }) {
+function DashboardTab({ date, categories, transactions, stats, drinkStats, cashRegister, onSaveCash, tgConfig, drinks, drinkDaily, workers, debts, debtsStats, onToast }) {
   const net = stats.totalIncome - stats.totalExpense;
 
   return (
@@ -828,7 +848,8 @@ function DashboardTab({ date, categories, transactions, stats, drinkStats, cashR
       {tgConfig.botToken && tgConfig.recipients?.length > 0 && (
         <TelegramQuickSend date={date} tgConfig={tgConfig} categories={categories}
           transactions={transactions} stats={stats} drinkStats={drinkStats}
-          cashRegister={cashRegister} onToast={onToast} />
+          cashRegister={cashRegister} drinks={drinks} drinkDaily={drinkDaily}
+          workers={workers} debts={debts} onToast={onToast} />
       )}
 
       <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
@@ -1061,18 +1082,31 @@ function CashRegisterCard({ date, cashRegister, totalIncome, totalCashless, onSa
 // ============================================================
 // TELEGRAM QUICK SEND
 // ============================================================
-function TelegramQuickSend({ date, tgConfig, categories, transactions, stats, drinkStats, cashRegister, onToast }) {
+const REPORT_TYPE_LABELS = {
+  drinks: '🥤 Suvlar (qisqa)',
+  drinks_detailed: '🥤 Suvlar — batafsil',
+  owner: "☕ To'liq (qisqa)",
+  owner_detailed: "☕ To'liq — batafsil",
+  full: '📋 Hammasi — har yozuv',
+};
+
+function TelegramQuickSend({ date, tgConfig, categories, transactions, stats, drinkStats, cashRegister, drinks, drinkDaily, workers, debts, onToast }) {
   const [sending, setSending] = useState(null);
 
   async function send(recipient) {
     setSending(recipient.id);
     let report = '';
-    if (recipient.reportType === 'drinks') {
-      report = buildDrinksReport(date, drinkStats);
-    } else {
-      report = buildOwnerReport(date, categories, transactions, stats, drinkStats, cashRegister);
+    const ctx = { date, categories, transactions, stats, drinkStats, cashRegister, drinks, drinkDaily, workers, debts };
+    switch (recipient.reportType) {
+      case 'drinks_detailed': report = buildDrinksDetailedReport(ctx); break;
+      case 'owner_detailed': report = buildOwnerDetailedReport(ctx); break;
+      case 'full': report = buildFullReport(ctx); break;
+      case 'drinks': report = buildDrinksReport(date, drinkStats); break;
+      case 'owner':
+      default:
+        report = buildOwnerReport(date, categories, transactions, stats, drinkStats, cashRegister);
     }
-    const result = await tgSend(tgConfig.botToken, recipient.chatId, report);
+    const result = await tgSendLong(tgConfig.botToken, recipient.chatId, report);
     setSending(null);
     if (result.ok) onToast(`${recipient.name}ga yuborildi`);
     else onToast(`Xato: ${result.error || 'Yuborilmadi'}`, 'error');
@@ -1093,7 +1127,7 @@ function TelegramQuickSend({ date, tgConfig, categories, transactions, stats, dr
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-slate-900 truncate">{r.name}</p>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                {r.reportType === 'drinks' ? '🥤 Faqat suvlar' : "☕ To'liq hisobot"}
+                {REPORT_TYPE_LABELS[r.reportType] || r.reportType}
               </p>
             </div>
             <button onClick={() => send(r)} disabled={sending === r.id}
@@ -1254,8 +1288,15 @@ function ExpenseTab({ date, categories, workers, transactions, onAdd, onDelete, 
             </button>
             {isOpen && (
               <div className="border-t border-stone-200 bg-stone-50 p-4">
-                <QuickAddForm expenseCat={cat} variant="expense" workers={workers}
-                  onSubmit={(data) => { onAdd({ type: 'expense', categoryId: cat.id, ...data, date }); setOpenCat(null); }} />
+                {cat.trackPayee && workers.filter(w => w.active !== false).length > 0 ? (
+                  <WorkerSalaryQuickEntry
+                    cat={cat} date={date} workers={workers.filter(w => w.active !== false)}
+                    catTxs={catTxs}
+                    onAdd={(data) => onAdd({ type: 'expense', categoryId: cat.id, ...data, date })} />
+                ) : (
+                  <QuickAddForm expenseCat={cat} variant="expense" workers={workers}
+                    onSubmit={(data) => { onAdd({ type: 'expense', categoryId: cat.id, ...data, date }); setOpenCat(null); }} />
+                )}
                 {catTxs.length > 0 && (
                   <div className="mt-4 space-y-1.5">
                     <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Bugungi yozuvlar</p>
@@ -1392,7 +1433,7 @@ function QuickAddForm({ category, expenseCat, onSubmit, variant = 'income', work
                   <select value={payee} onChange={(e) => onWorkerSelect(e.target.value)}
                     className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-amber-600 outline-none bg-white">
                     <option value="">— Tanlang —</option>
-                    {activeWorkers.map(w => <option key={w.id} value={w.name}>{w.name}{w.position ? ` (${w.position})` : ''}</option>)}
+                    {activeWorkers.map(w => <option key={w.id} value={w.name}>{w.code ? `[${w.code}] ` : ''}{w.name}{w.position ? ` (${w.position})` : ''}</option>)}
                     <option value="__other__">Boshqa (qo'lda yozish)</option>
                   </select>
                 </label>
@@ -1480,8 +1521,122 @@ function TxRow({ tx, onDelete, accent }) {
 }
 
 // ============================================================
-// DRINKS TAB
+// WORKER SALARY QUICK ENTRY (#5) — har ishchiga 1 satr, summa va saqlash
 // ============================================================
+function WorkerSalaryQuickEntry({ cat, date, workers, catTxs, onAdd }) {
+  const [amounts, setAmounts] = useState({});
+  const [notes, setNotes] = useState({});
+  const [showOther, setShowOther] = useState(false);
+  const [otherName, setOtherName] = useState('');
+  const [otherAmount, setOtherAmount] = useState('');
+  const [otherNote, setOtherNote] = useState('');
+
+  // Bugun har ishchiga qancha to'langan
+  const paidByWorker = useMemo(() => {
+    const m = {};
+    catTxs.forEach(t => {
+      const key = t.payeeWorkerId || t.payee;
+      if (key) m[key] = (m[key] || 0) + Number(t.amount);
+    });
+    return m;
+  }, [catTxs]);
+
+  function saveWorker(w) {
+    const a = Number(amounts[w.id]);
+    if (!a || a <= 0) return;
+    onAdd({
+      amount: a,
+      payee: w.name,
+      payeeWorkerId: w.id,
+      note: notes[w.id] || '',
+    });
+    // Field'ni tozalash
+    setAmounts(prev => ({ ...prev, [w.id]: '' }));
+    setNotes(prev => ({ ...prev, [w.id]: '' }));
+  }
+
+  function saveOther() {
+    const a = Number(otherAmount);
+    if (!a || a <= 0 || !otherName.trim()) return;
+    onAdd({
+      amount: a,
+      payee: otherName.trim(),
+      note: otherNote || '',
+    });
+    setOtherName(''); setOtherAmount(''); setOtherNote('');
+    setShowOther(false);
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 mb-1">
+        <Users className="w-4 h-4 text-amber-700" />
+        <p className="text-xs font-semibold text-amber-900 uppercase tracking-wider">Ishchilarga to'lash</p>
+      </div>
+      {workers.map(w => {
+        const paid = paidByWorker[w.id] || paidByWorker[w.name] || 0;
+        return (
+          <div key={w.id} className="bg-white border border-stone-200 rounded-lg p-2.5">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-7 h-7 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <span className="text-xs font-bold text-amber-800">{w.name.charAt(0).toUpperCase()}</span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  {w.code && <span className="text-[9px] bg-stone-200 text-stone-700 font-mono px-1 py-0.5 rounded font-bold">{w.code}</span>}
+                  <p className="text-sm font-semibold text-slate-900 truncate">{w.name}</p>
+                </div>
+                {paid > 0 && <p className="text-[10px] text-emerald-700 font-semibold">Bugun: {fmtSom(paid)}</p>}
+              </div>
+            </div>
+            <div className="grid grid-cols-[1fr_auto] gap-1.5">
+              <input type="number" inputMode="numeric"
+                value={amounts[w.id] || ''}
+                onChange={(e) => setAmounts(prev => ({ ...prev, [w.id]: e.target.value }))}
+                placeholder="Summa"
+                className="px-2 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-amber-600 outline-none" />
+              <button onClick={() => saveWorker(w)}
+                disabled={!amounts[w.id] || Number(amounts[w.id]) <= 0}
+                className="bg-amber-600 hover:bg-amber-700 disabled:bg-stone-300 text-white font-semibold px-3 rounded-lg text-sm flex items-center gap-1">
+                <Save className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <input type="text"
+              value={notes[w.id] || ''}
+              onChange={(e) => setNotes(prev => ({ ...prev, [w.id]: e.target.value }))}
+              placeholder="Izoh (ixtiyoriy)"
+              className="w-full mt-1.5 px-2 py-1.5 border border-stone-200 rounded-lg text-xs focus:border-amber-600 outline-none" />
+          </div>
+        );
+      })}
+
+      <button onClick={() => setShowOther(!showOther)}
+        className="w-full mt-2 bg-white border border-dashed border-stone-300 hover:border-stone-400 text-slate-600 font-medium py-2 rounded-lg text-xs flex items-center justify-center gap-1.5">
+        {showOther ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+        {showOther ? 'Bekor' : "Boshqa kishi (qo'lda)"}
+      </button>
+
+      {showOther && (
+        <div className="bg-white border border-stone-200 rounded-lg p-3 space-y-2">
+          <input type="text" value={otherName} onChange={(e) => setOtherName(e.target.value)}
+            placeholder="Ism familiya"
+            className="w-full px-2 py-2 border border-stone-300 rounded-lg text-sm focus:border-amber-600 outline-none" />
+          <input type="number" inputMode="numeric" value={otherAmount} onChange={(e) => setOtherAmount(e.target.value)}
+            placeholder="Summa"
+            className="w-full px-2 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-amber-600 outline-none" />
+          <input type="text" value={otherNote} onChange={(e) => setOtherNote(e.target.value)}
+            placeholder="Izoh"
+            className="w-full px-2 py-1.5 border border-stone-200 rounded-lg text-xs focus:border-amber-600 outline-none" />
+          <button onClick={saveOther}
+            disabled={!otherName.trim() || !otherAmount || Number(otherAmount) <= 0}
+            className="w-full bg-amber-600 hover:bg-amber-700 disabled:bg-stone-300 text-white font-semibold py-2 rounded-lg text-sm flex items-center justify-center gap-1.5">
+            <Save className="w-3.5 h-3.5" />Saqlash
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 function DrinksTab({ date, drinks, drinkDaily, stats, onAdd, onUpdate, onDelete, onSaveDay }) {
   const [view, setView] = useState('daily');
   const [showAddForm, setShowAddForm] = useState(false);
@@ -1677,9 +1832,9 @@ function DrinkForm({ initial, onSubmit, onCancel }) {
 }
 
 // ============================================================
-// DEBTS TAB
+// DEBTS SECTION (Hisobot tabi ichida #3)
 // ============================================================
-function DebtsTab({ debts, stats, onAdd, onUpdate, onDelete, onPayment }) {
+function DebtsSection({ debts, stats, onAdd, onUpdate, onDelete, onPayment }) {
   const [filter, setFilter] = useState('owed_to_us');
   const [showStatus, setShowStatus] = useState('pending');
   const [showAddForm, setShowAddForm] = useState(false);
@@ -1699,11 +1854,6 @@ function DebtsTab({ debts, stats, onAdd, onUpdate, onDelete, onPayment }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 mb-2">
-        <HandCoins className="w-5 h-5 text-amber-700" />
-        <h2 className="text-lg font-semibold text-slate-900">Qarzlar</h2>
-      </div>
-
       <div className="grid grid-cols-2 gap-3">
         <button onClick={() => setFilter('owed_to_us')}
           className={`rounded-xl p-3 text-left border-2 transition-all ${filter === 'owed_to_us' ? 'border-emerald-500 bg-emerald-50' : 'border-stone-200 bg-white'}`}>
@@ -1735,7 +1885,7 @@ function DebtsTab({ debts, stats, onAdd, onUpdate, onDelete, onPayment }) {
           onCancel={() => setShowAddForm(false)} />
       )}
 
-      <div className="bg-white rounded-xl border border-stone-200 p-1 grid grid-cols-3 gap-1">
+      <div className="bg-stone-50 rounded-xl border border-stone-200 p-1 grid grid-cols-3 gap-1">
         {[
           { id: 'pending', label: "Hal bo'lmagan" },
           { id: 'paid', label: "To'langan" },
@@ -1749,7 +1899,7 @@ function DebtsTab({ debts, stats, onAdd, onUpdate, onDelete, onPayment }) {
       </div>
 
       {filtered.length === 0 && (
-        <div className="text-center py-8 text-slate-400 text-sm">
+        <div className="text-center py-6 text-slate-400 text-sm">
           {showStatus === 'pending' ? "Hal bo'lmagan qarz yo'q" : showStatus === 'paid' ? "To'langan qarz yo'q" : "Qarzlar ro'yxati bo'sh"}
         </div>
       )}
@@ -1964,14 +2114,16 @@ function PaymentForm({ maxAmount, onSubmit, onCancel }) {
 }
 
 // ============================================================
-// REPORTS TAB — chartlar (#5) + dinamik PDF (#4)
+// REPORTS TAB — chartlar (#5) + dinamik PDF (#4) + Print + Qarzlar
 // ============================================================
-function ReportsTab({ categories, transactions, drinkDaily, drinks, cashRegister, debts, workers, onToast }) {
+function ReportsTab({ categories, transactions, drinkDaily, drinks, cashRegister, debts, debtsStats, workers, onAddDebt, onUpdateDebt, onDeleteDebt, onPayDebt, onToast }) {
   const today = new Date();
   const [period, setPeriod] = useState('month');
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [printLoading, setPrintLoading] = useState(false);
+  const [showDebts, setShowDebts] = useState(false);
 
   const startStr = period === 'month'
     ? `${year}-${String(month + 1).padStart(2, '0')}-01`
@@ -2078,6 +2230,31 @@ function ReportsTab({ categories, transactions, drinkDaily, drinks, cashRegister
     }
   }
 
+  // Print to 80mm thermal printer
+  function printReport() {
+    setPrintLoading(true);
+    try {
+      const html = buildPrintHTML({
+        period, year, month, stats, categories, transactions, drinks, drinkDaily, cashRegister, debts, workers, periodTxs
+      });
+      const w = window.open('', '_blank', 'width=380,height=600');
+      if (!w) {
+        onToast("Pop-up bloklangan. Brauzer sozlamasidan ruxsat bering.", 'error');
+        return;
+      }
+      w.document.write(html);
+      w.document.close();
+      // Wait for fonts/render then trigger print
+      w.onload = () => {
+        setTimeout(() => { w.focus(); w.print(); }, 200);
+      };
+    } catch (e) {
+      onToast(`Print xato: ${e.message}`, 'error');
+    } finally {
+      setPrintLoading(false);
+    }
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 mb-2">
@@ -2111,11 +2288,18 @@ function ReportsTab({ categories, transactions, drinkDaily, drinks, cashRegister
         </div>
       </div>
 
-      <button onClick={downloadPDF} disabled={pdfLoading}
-        className="w-full bg-amber-600 hover:bg-amber-700 disabled:bg-stone-300 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors">
-        {pdfLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <FileDown className="w-5 h-5" />}
-        {pdfLoading ? 'Tayyorlanmoqda...' : 'PDF qilib yuklab olish'}
-      </button>
+      <div className="grid grid-cols-2 gap-2">
+        <button onClick={downloadPDF} disabled={pdfLoading}
+          className="bg-amber-600 hover:bg-amber-700 disabled:bg-stone-300 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors">
+          {pdfLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <FileDown className="w-5 h-5" />}
+          {pdfLoading ? '...' : 'PDF'}
+        </button>
+        <button onClick={printReport} disabled={printLoading}
+          className="bg-slate-700 hover:bg-slate-800 disabled:bg-stone-300 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors">
+          {printLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Printer className="w-5 h-5" />}
+          {printLoading ? '...' : 'Chek (80mm)'}
+        </button>
+      </div>
 
       <div className={`rounded-2xl p-5 shadow-sm ${stats.net >= 0 ? 'bg-gradient-to-br from-emerald-700 to-emerald-900 text-white' : 'bg-gradient-to-br from-rose-700 to-rose-900 text-white'}`}>
         <p className="text-xs opacity-80 font-medium uppercase tracking-wider">
@@ -2227,6 +2411,29 @@ function ReportsTab({ categories, transactions, drinkDaily, drinks, cashRegister
           </div>
         </div>
       )}
+
+      {/* Qarzlar bo'limi (Hisobotga ko'chirildi #3) */}
+      <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+        <button onClick={() => setShowDebts(!showDebts)}
+          className="w-full bg-amber-50 px-4 py-3 border-b border-stone-200 flex items-center justify-between hover:bg-amber-100 transition-colors">
+          <div className="flex items-center gap-2">
+            <HandCoins className="w-4 h-4 text-amber-700" />
+            <h3 className="text-sm font-semibold text-amber-900">Qarzlar</h3>
+            {(debtsStats.owedToUs > 0 || debtsStats.weOwe > 0) && (
+              <span className="text-[10px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded font-bold">
+                {debts.filter(d => d.status === 'pending').length}
+              </span>
+            )}
+          </div>
+          {showDebts ? <ChevronUp className="w-4 h-4 text-amber-700" /> : <ChevronDown className="w-4 h-4 text-amber-700" />}
+        </button>
+        {showDebts && (
+          <div className="p-4">
+            <DebtsSection debts={debts} stats={debtsStats}
+              onAdd={onAddDebt} onUpdate={onUpdateDebt} onDelete={onDeleteDebt} onPayment={onPayDebt} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -2579,6 +2786,7 @@ function WorkersSection({ workers, transactions, workerByName, onAdd, onUpdate, 
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
+                      {w.code && <span className="text-[10px] bg-stone-200 text-stone-700 font-mono px-1.5 py-0.5 rounded font-bold">{w.code}</span>}
                       <p className="text-sm font-semibold text-slate-900 truncate">{w.name}</p>
                       {!w.active && <span className="text-[9px] bg-stone-200 text-stone-600 px-1.5 py-0.5 rounded font-bold">FAOL EMAS</span>}
                     </div>
@@ -2606,22 +2814,36 @@ function WorkersSection({ workers, transactions, workerByName, onAdd, onUpdate, 
 
 function WorkerForm({ initial, onSubmit, onCancel }) {
   const [name, setName] = useState(initial?.name || '');
+  const [code, setCode] = useState(initial?.code || '');
   const [position, setPosition] = useState(initial?.position || '');
   const [active, setActive] = useState(initial?.active !== false);
 
   function submit() {
     if (!name.trim()) return;
-    onSubmit({ name: name.trim(), position: position.trim(), active });
+    onSubmit({
+      name: name.trim(),
+      code: code.trim(),
+      position: position.trim(),
+      active
+    });
   }
 
   return (
     <div className="p-4 space-y-3">
       <p className="text-sm font-semibold text-slate-900">{initial ? "Ishchini tahrirlash" : "Yangi ishchi"}</p>
-      <label className="block">
-        <span className="text-[11px] font-semibold text-slate-600 uppercase">Ism familiya</span>
-        <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Aziz Karimov"
-          className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-emerald-600 outline-none" />
-      </label>
+      <div className="grid grid-cols-3 gap-2">
+        <label className="block">
+          <span className="text-[10px] font-semibold text-slate-600 uppercase">ID / Kod</span>
+          <input type="text" value={code} onChange={(e) => setCode(e.target.value)} placeholder="W001"
+            className="w-full mt-1 px-2 py-2 border border-stone-300 rounded-lg text-sm font-mono text-center focus:border-emerald-600 outline-none" />
+        </label>
+        <label className="block col-span-2">
+          <span className="text-[10px] font-semibold text-slate-600 uppercase">Ism familiya</span>
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Aziz Karimov"
+            className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-emerald-600 outline-none" />
+        </label>
+      </div>
+      <p className="text-[10px] text-slate-500 -mt-1">ID ixtiyoriy — agar ko'p ishchi bo'lsa, ajratib ko'rish uchun (W001, ofitsant-1 va h.k.)</p>
       <label className="block">
         <span className="text-[11px] font-semibold text-slate-600 uppercase">Lavozim (ixtiyoriy)</span>
         <input type="text" value={position} onChange={(e) => setPosition(e.target.value)} placeholder="Oshpaz / Ofitsiant"
@@ -2886,7 +3108,7 @@ function TelegramSection({ config, onSave, onToast }) {
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-slate-900 truncate">{r.name}</p>
                       <p className="text-[11px] text-slate-500">
-                        {r.reportType === 'drinks' ? '🥤 Faqat suvlar' : "☕ To'liq hisobot"}
+                        {REPORT_TYPE_LABELS[r.reportType] || r.reportType}
                       </p>
                     </div>
                   </div>
@@ -2938,8 +3160,17 @@ function RecipientForm({ initial, onSubmit, onCancel }) {
         <span className="text-[11px] font-semibold text-slate-600 uppercase">Hisobot turi</span>
         <select value={reportType} onChange={(e) => setReportType(e.target.value)}
           className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm bg-white focus:border-emerald-600 outline-none">
-          <option value="owner">☕ To'liq hisobot (egasi uchun)</option>
-          <option value="drinks">🥤 Faqat suvlar</option>
+          <optgroup label="Suvlar">
+            <option value="drinks">🥤 Suvlar — qisqa</option>
+            <option value="drinks_detailed">🥤 Suvlar — batafsil (har bir suv)</option>
+          </optgroup>
+          <optgroup label="To'liq hisobot">
+            <option value="owner">☕ To'liq — qisqa</option>
+            <option value="owner_detailed">☕ To'liq — batafsil (har ishchi/chiqim)</option>
+          </optgroup>
+          <optgroup label="Hammasi">
+            <option value="full">📋 Hammasi — har bir yozuv (yorliqlar bilan)</option>
+          </optgroup>
         </select>
       </label>
       <div className="grid grid-cols-2 gap-2 pt-1">
@@ -3047,4 +3278,380 @@ function buildOwnerReport(date, categories, transactions, stats, drinkStats, cas
   }
 
   return lines.join('\n');
+}
+
+// ============================================================
+// BATAFSIL HISOBOTLAR (#1, #6)
+// ============================================================
+function buildDrinksDetailedReport({ date, drinkStats, drinks, drinkDaily }) {
+  const lines = [];
+  lines.push(`<b>🥤 Suvlar batafsil hisoboti</b>`);
+  lines.push(`<i>${escapeHTML(formatUzbDateFull(date))}</i>`);
+  lines.push('');
+  lines.push(`<b>Umumiy:</b>`);
+  lines.push(`• Sotildi: <b>${drinkStats.totalSold} dona</b>`);
+  lines.push(`• Tushum: <b>${fmtSom(drinkStats.totalRevenue)}</b>`);
+  lines.push(`• Sof foyda: <b>${fmtSom(drinkStats.totalProfit)}</b>`);
+  lines.push('');
+
+  // Bugungi qoldirilgan suvlar
+  const todayRec = drinkDaily?.[date] || {};
+  const addedToday = drinks.filter(d => {
+    const r = todayRec[d.id];
+    return r && Number(r.added) > 0;
+  });
+  if (addedToday.length > 0) {
+    lines.push(`<b>📦 Bugun qo'shilgan suvlar:</b>`);
+    addedToday.forEach(d => {
+      const r = todayRec[d.id];
+      lines.push(`• ${escapeHTML(d.name)}: +${r.added} dona`);
+    });
+    lines.push('');
+  }
+
+  // Har bir suv bo'yicha
+  lines.push(`<b>📊 Har bir suv:</b>`);
+  drinkStats.perDrink.forEach(d => {
+    const profitPerUnit = Number(d.drink.salePrice || 0) - Number(d.drink.purchasePrice || 0);
+    if (!d.hasEnd) {
+      lines.push(`<b>${escapeHTML(d.drink.name)}</b>`);
+      lines.push(`  Boshlang'ich: ${d.start} dona`);
+      lines.push(`  Qo'shildi: +${d.added} dona`);
+      lines.push(`  ⚠️ Qoldiq kiritilmagan`);
+      lines.push('');
+    } else {
+      lines.push(`<b>${escapeHTML(d.drink.name)}</b>`);
+      lines.push(`  ${d.start} + ${d.added} − ${d.end} = <b>${d.sold} dona sotildi</b>`);
+      lines.push(`  Narx: ${fmt(d.drink.salePrice)} so'm/dona`);
+      lines.push(`  Tushum: <b>${fmt(d.revenue)}</b>`);
+      lines.push(`  Tan narx: ${fmt(d.drink.purchasePrice)} so'm`);
+      lines.push(`  Foyda: <b>${fmt(d.sold * profitPerUnit)}</b> (${fmt(profitPerUnit)}/dona)`);
+      lines.push('');
+    }
+  });
+
+  return lines.join('\n');
+}
+
+function buildOwnerDetailedReport({ date, categories, transactions, stats, drinkStats, cashRegister, workers, debts }) {
+  const lines = [];
+  const net = stats.totalIncome - stats.totalExpense;
+
+  lines.push(`<b>☕ To'liq batafsil hisobot</b>`);
+  lines.push(`<i>${escapeHTML(formatUzbDateFull(date))}</i>`);
+  lines.push('');
+  lines.push(`<b>💰 Tushum:</b> ${fmtSom(stats.totalIncome)}`);
+  lines.push(`<b>💸 Chiqim:</b> ${fmtSom(stats.totalExpense)}`);
+  lines.push(`<b>${net >= 0 ? '✅' : '⚠️'} Sof:</b> ${net >= 0 ? '+' : ''}${fmtSom(net)}`);
+  lines.push('');
+
+  // Tushum batafsil — har kategoriya bo'yicha yozuvlar bilan
+  if (Object.keys(stats.incomeByCategory).length > 0) {
+    lines.push(`<b>📈 Tushumlar batafsil:</b>`);
+    categories.income.filter(c => stats.incomeByCategory[c.id]).forEach(cat => {
+      const a = stats.incomeByCategory[cat.id];
+      const txs = transactions.filter(t => t.type === 'income' && t.categoryId === cat.id);
+      const cashSum = txs.filter(t => t.paymentMethod !== 'card').reduce((s, t) => s + Number(t.amount), 0);
+      const cardSum = txs.filter(t => t.paymentMethod === 'card').reduce((s, t) => s + Number(t.amount), 0);
+
+      let header = `${cat.icon || ''} <b>${escapeHTML(cat.name)}</b>: ${fmtSom(a)}`;
+      if (cat.hasCommission) header += ` [${cat.commissionPercent}% ulush]`;
+      if (cat.perUnit) {
+        const ud = stats.perUnitDetails[cat.id];
+        if (ud) header += ` — ${ud.qty} dona${ud.qtyEaten > 0 ? `, ${ud.qtyEaten} yedi` : ''}`;
+      }
+      lines.push(header);
+      if (cardSum > 0) lines.push(`  💵 Naqd: ${fmt(cashSum)} | 💳 Plastik: ${fmt(cardSum)}`);
+    });
+    lines.push('');
+  }
+
+  // Chiqim batafsil — har bir kategoriya, kim olganligi
+  if (Object.keys(stats.expenseByCategory).length > 0) {
+    lines.push(`<b>📉 Chiqimlar batafsil:</b>`);
+    categories.expense
+      .filter(c => stats.expenseByCategory[c.id])
+      .sort((a, b) => stats.expenseByCategory[b.id] - stats.expenseByCategory[a.id])
+      .forEach(cat => {
+        const a = stats.expenseByCategory[cat.id];
+        const txs = transactions.filter(t => t.type === 'expense' && t.categoryId === cat.id);
+        let header = `<b>${escapeHTML(cat.name)}</b>: ${fmtSom(a)}`;
+        if (cat.isCashless) header += ' 💳';
+        lines.push(header);
+        // Har yozuv:
+        txs.forEach(t => {
+          const parts = [`  • ${fmtSom(t.amount)}`];
+          if (t.payee) {
+            const w = t.payeeWorkerId ? (workers || []).find(x => x.id === t.payeeWorkerId) : null;
+            const codeStr = w?.code ? `[${w.code}] ` : '';
+            parts.push(`— ${codeStr}${escapeHTML(t.payee)}`);
+          }
+          if (t.note) parts.push(`(${escapeHTML(t.note)})`);
+          lines.push(parts.join(' '));
+        });
+      });
+    lines.push('');
+  }
+
+  // Plastik
+  if (stats.totalCashless > 0) {
+    lines.push(`<b>💵 Naqd savdo:</b> ${fmtSom(stats.totalIncome - stats.totalCashless)}`);
+    lines.push(`<b>💳 Plastik:</b> ${fmtSom(stats.totalCashless)}`);
+    lines.push('');
+  }
+
+  // Kassa
+  const cr = cashRegister[date];
+  const counted = cr?.countedCash !== undefined && cr?.countedCash !== null
+    ? cr.countedCash : cr?.endCash;
+  if (counted !== null && counted !== undefined && counted !== '') {
+    const naqdSavdo = stats.totalIncome - stats.totalCashless;
+    const diff = Number(counted) - naqdSavdo;
+    lines.push(`<b>💼 Kassa balansi:</b>`);
+    lines.push(`  Bo'lishi kerak: ${fmtSom(naqdSavdo)}`);
+    lines.push(`  Sanab kiritildi: ${fmtSom(counted)}`);
+    if (diff === 0) lines.push(`  ✅ Mukammal balans`);
+    else lines.push(`  ${Math.abs(diff) < 1000 ? '⚠️' : '❌'} Farq: ${diff > 0 ? '+' : ''}${fmtSom(diff)}`);
+    lines.push('');
+  }
+
+  // Suvlar
+  if (drinkStats.totalSold > 0) {
+    lines.push(`<b>🥤 Suvlar:</b> ${drinkStats.totalSold} dona, ${fmtSom(drinkStats.totalRevenue)} (foyda ${fmtSom(drinkStats.totalProfit)})`);
+    lines.push('');
+  }
+
+  // Qarzlar
+  if (debts && debts.length > 0) {
+    const pendingOwed = debts.filter(d => d.type === 'owed_to_us' && d.status === 'pending');
+    const pendingOwe = debts.filter(d => d.type === 'we_owe' && d.status === 'pending');
+    if (pendingOwed.length > 0 || pendingOwe.length > 0) {
+      lines.push(`<b>🤝 Qarzlar:</b>`);
+      if (pendingOwed.length > 0) {
+        const total = pendingOwed.reduce((s, d) => s + Number(d.remaining ?? d.amount), 0);
+        lines.push(`  ⬇️ Bizga qarzdor: ${fmtSom(total)} (${pendingOwed.length} kishi)`);
+      }
+      if (pendingOwe.length > 0) {
+        const total = pendingOwe.reduce((s, d) => s + Number(d.remaining ?? d.amount), 0);
+        lines.push(`  ⬆️ Biz qarzdormiz: ${fmtSom(total)} (${pendingOwe.length} kishi)`);
+      }
+    }
+  }
+
+  return lines.join('\n');
+}
+
+function buildFullReport({ date, categories, transactions, stats, drinkStats, cashRegister, drinks, drinkDaily, workers, debts }) {
+  const lines = [];
+  const net = stats.totalIncome - stats.totalExpense;
+
+  lines.push(`<b>📋 HAR BIR YOZUV — to'liq hisobot</b>`);
+  lines.push(`<i>${escapeHTML(formatUzbDateFull(date))}</i>`);
+  lines.push('━━━━━━━━━━━━━━━━━━━━');
+  lines.push('');
+  lines.push(`💰 <b>Tushum:</b> ${fmtSom(stats.totalIncome)}`);
+  lines.push(`💸 <b>Chiqim:</b> ${fmtSom(stats.totalExpense)}`);
+  lines.push(`${net >= 0 ? '✅' : '⚠️'} <b>Sof:</b> ${net >= 0 ? '+' : ''}${fmtSom(net)}`);
+  lines.push('');
+
+  // HAR TUSHUM
+  const incomeTxs = transactions.filter(t => t.type === 'income');
+  if (incomeTxs.length > 0) {
+    lines.push(`<b>📈 Tushum yozuvlari (${incomeTxs.length} ta):</b>`);
+    categories.income.forEach(cat => {
+      const txs = incomeTxs.filter(t => t.categoryId === cat.id);
+      if (txs.length === 0) return;
+      lines.push('');
+      lines.push(`${cat.icon || ''} <b>${escapeHTML(cat.name)}</b>`);
+      txs.forEach(t => {
+        const time = t.createdAt ? new Date(t.createdAt).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' }) : '';
+        const parts = [`  ${time ? `[${time}] ` : ''}${fmtSom(t.amount)}`];
+        if (t.qty) parts.push(`— ${t.qty} dona`);
+        if (t.qtyEaten) parts.push(`(${t.qtyEaten} yedi)`);
+        if (t.paymentMethod === 'card') parts.push(`💳`);
+        if (t.note) parts.push(`(${escapeHTML(t.note)})`);
+        lines.push(parts.join(' '));
+      });
+    });
+    lines.push('');
+  }
+
+  // HAR CHIQIM
+  const expenseTxs = transactions.filter(t => t.type === 'expense');
+  if (expenseTxs.length > 0) {
+    lines.push(`<b>📉 Chiqim yozuvlari (${expenseTxs.length} ta):</b>`);
+    categories.expense.forEach(cat => {
+      const txs = expenseTxs.filter(t => t.categoryId === cat.id);
+      if (txs.length === 0) return;
+      lines.push('');
+      lines.push(`<b>${escapeHTML(cat.name)}</b>${cat.isCashless ? ' 💳' : ''}`);
+      txs.forEach(t => {
+        const time = t.createdAt ? new Date(t.createdAt).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' }) : '';
+        const parts = [`  ${time ? `[${time}] ` : ''}${fmtSom(t.amount)}`];
+        if (t.payee) {
+          const w = t.payeeWorkerId ? (workers || []).find(x => x.id === t.payeeWorkerId) : null;
+          const codeStr = w?.code ? `[${w.code}] ` : '';
+          parts.push(`— ${codeStr}${escapeHTML(t.payee)}`);
+        }
+        if (t.note) parts.push(`(${escapeHTML(t.note)})`);
+        lines.push(parts.join(' '));
+      });
+    });
+    lines.push('');
+  }
+
+  // SUVLAR — har bir suv batafsil
+  if (drinkStats.totalSold > 0) {
+    lines.push(`<b>🥤 Suvlar:</b>`);
+    drinkStats.perDrink.forEach(d => {
+      if (!d.hasEnd) {
+        lines.push(`• ${escapeHTML(d.drink.name)}: <i>kiritilmagan</i>`);
+      } else {
+        lines.push(`• ${escapeHTML(d.drink.name)}: ${d.start}+${d.added}−${d.end} = ${d.sold} dona, ${fmt(d.revenue)} so'm`);
+      }
+    });
+    lines.push('');
+  }
+
+  // KASSA
+  const cr = cashRegister[date];
+  const counted = cr?.countedCash !== undefined && cr?.countedCash !== null
+    ? cr.countedCash : cr?.endCash;
+  if (counted !== null && counted !== undefined && counted !== '') {
+    const naqdSavdo = stats.totalIncome - stats.totalCashless;
+    const diff = Number(counted) - naqdSavdo;
+    lines.push(`<b>💼 Kassa:</b>`);
+    lines.push(`  Bo'lishi kerak: ${fmtSom(naqdSavdo)}`);
+    lines.push(`  Sanab kiritildi: ${fmtSom(counted)}`);
+    if (diff !== 0) lines.push(`  Farq: ${diff > 0 ? '+' : ''}${fmtSom(diff)}`);
+    lines.push('');
+  }
+
+  // QARZLAR
+  if (debts && debts.length > 0) {
+    const pending = debts.filter(d => d.status === 'pending');
+    if (pending.length > 0) {
+      lines.push(`<b>🤝 Hal bo'lmagan qarzlar (${pending.length} ta):</b>`);
+      pending.forEach(d => {
+        const arrow = d.type === 'owed_to_us' ? '⬇️' : '⬆️';
+        const remaining = Number(d.remaining ?? d.amount);
+        lines.push(`${arrow} ${escapeHTML(d.partyName)}: ${fmtSom(remaining)}${d.dueDate ? ` (${formatUzbDate(d.dueDate)})` : ''}`);
+      });
+    }
+  }
+
+  return lines.join('\n');
+}
+
+// ============================================================
+// PRINT 80mm — chek ko'rinishida (#4)
+// ============================================================
+function buildPrintHTML({ period, year, month, stats, categories, transactions, drinks, drinkDaily, cashRegister, debts, workers, periodTxs }) {
+  const MONTHS = ['Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr'];
+  const periodLabel = period === 'month' ? `${MONTHS[month]} ${year}` : `${year}-yil`;
+  const today = new Date().toLocaleString('uz-UZ');
+  const net = stats.totalIncome - stats.totalExpense;
+
+  let body = '';
+  body += `<div class="header">CHOYXONA HISOBCHI</div>`;
+  body += `<div class="period">${periodLabel}</div>`;
+  body += `<div class="date">Chiqarildi: ${escapeHTML(today)}</div>`;
+  body += `<div class="hr"></div>`;
+
+  body += `<div class="row big"><span>JAMI TUSHUM:</span><span>${fmt(stats.totalIncome)}</span></div>`;
+  body += `<div class="row big"><span>JAMI CHIQIM:</span><span>${fmt(stats.totalExpense)}</span></div>`;
+  body += `<div class="row big"><span>SOF NATIJA:</span><span>${net >= 0 ? '+' : ''}${fmt(net)}</span></div>`;
+  body += `<div class="hr"></div>`;
+
+  if (Object.keys(stats.incByCat).length > 0) {
+    body += `<div class="section">TUSHUMLAR</div>`;
+    categories.income
+      .filter(c => stats.incByCat[c.id])
+      .sort((a, b) => stats.incByCat[b.id] - stats.incByCat[a.id])
+      .forEach(cat => {
+        body += `<div class="row"><span>${escapeHTML(cat.name)}</span><span>${fmt(stats.incByCat[cat.id])}</span></div>`;
+      });
+    body += `<div class="hr"></div>`;
+  }
+
+  if (Object.keys(stats.expByCat).length > 0) {
+    body += `<div class="section">CHIQIMLAR</div>`;
+    categories.expense
+      .filter(c => stats.expByCat[c.id])
+      .sort((a, b) => stats.expByCat[b.id] - stats.expByCat[a.id])
+      .forEach(cat => {
+        body += `<div class="row"><span>${escapeHTML(cat.name)}${cat.isCashless ? ' [P]' : ''}</span><span>${fmt(stats.expByCat[cat.id])}</span></div>`;
+      });
+    body += `<div class="hr"></div>`;
+  }
+
+  if (stats.totalCashless > 0) {
+    body += `<div class="row"><span>Naqd savdo:</span><span>${fmt(stats.totalIncome - stats.totalCashless)}</span></div>`;
+    body += `<div class="row"><span>Plastik:</span><span>${fmt(stats.totalCashless)}</span></div>`;
+    body += `<div class="hr"></div>`;
+  }
+
+  if (stats.drinksSold > 0) {
+    body += `<div class="section">SUVLAR</div>`;
+    body += `<div class="row"><span>Sotildi:</span><span>${stats.drinksSold} dona</span></div>`;
+    body += `<div class="row"><span>Tushum:</span><span>${fmt(stats.drinksRevenue)}</span></div>`;
+    body += `<div class="row"><span>Foyda:</span><span>${fmt(stats.drinksProfit)}</span></div>`;
+    body += `<div class="hr"></div>`;
+  }
+
+  // Ishchilar oyligi (workerByName + payeeWorkerId)
+  const payeeMap = {};
+  periodTxs.filter(t => t.type === 'expense' && t.payee).forEach(t => {
+    const key = t.payeeWorkerId || `name:${t.payee}`;
+    if (!payeeMap[key]) {
+      const w = (workers || []).find(x => x.id === t.payeeWorkerId);
+      payeeMap[key] = { name: w?.name || t.payee, code: w?.code || '', total: 0 };
+    }
+    payeeMap[key].total += Number(t.amount);
+  });
+  const payees = Object.values(payeeMap).sort((a, b) => b.total - a.total);
+  if (payees.length > 0) {
+    body += `<div class="section">ISHCHILAR / OLGANLAR</div>`;
+    payees.forEach(p => {
+      const codeStr = p.code ? `[${p.code}] ` : '';
+      body += `<div class="row"><span>${escapeHTML(codeStr + p.name)}</span><span>${fmt(p.total)}</span></div>`;
+    });
+    body += `<div class="hr"></div>`;
+  }
+
+  // Qarzlar
+  const pending = (debts || []).filter(d => d.status === 'pending');
+  if (pending.length > 0) {
+    body += `<div class="section">QARZLAR (hal bo'lmagan)</div>`;
+    pending.forEach(d => {
+      const remaining = Number(d.remaining ?? d.amount);
+      const arrow = d.type === 'owed_to_us' ? '<-' : '->';
+      body += `<div class="row"><span>${arrow} ${escapeHTML(d.partyName)}</span><span>${fmt(remaining)}</span></div>`;
+    });
+    body += `<div class="hr"></div>`;
+  }
+
+  body += `<div class="footer">Choyxona Hisobchi v4</div>`;
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Hisobot ${escapeHTML(periodLabel)}</title>
+<style>
+  @page { size: 80mm auto; margin: 3mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Courier New', monospace; font-size: 11px; color: #000; line-height: 1.3; width: 74mm; }
+  .header { font-size: 13px; font-weight: bold; text-align: center; margin-bottom: 4px; }
+  .period { text-align: center; font-size: 12px; font-weight: bold; margin-bottom: 2px; }
+  .date { text-align: center; font-size: 9px; margin-bottom: 4px; }
+  .hr { border-top: 1px dashed #000; margin: 4px 0; }
+  .section { font-weight: bold; font-size: 11px; margin-top: 4px; margin-bottom: 2px; text-decoration: underline; }
+  .row { display: flex; justify-content: space-between; align-items: flex-start; gap: 4px; padding: 1px 0; }
+  .row span:first-child { flex: 1; word-break: break-word; }
+  .row span:last-child { font-weight: bold; white-space: nowrap; }
+  .row.big { font-weight: bold; font-size: 12px; padding: 2px 0; }
+  .footer { text-align: center; margin-top: 8px; font-size: 9px; color: #555; }
+  @media print {
+    body { width: 100%; }
+    .no-print { display: none; }
+  }
+  .no-print { position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%); padding: 8px 16px; background: #047857; color: white; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; }
+</style></head><body>${body}<button class="no-print" onclick="window.print()">🖨️ Print</button></body></html>`;
 }
