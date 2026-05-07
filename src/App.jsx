@@ -1042,6 +1042,7 @@ function CashRegisterCard({ date, cashRegister, totalIncome, totalCashless, onSa
           <input type="number" inputMode="numeric" value={countedCash}
             onChange={(e) => { setCountedCash(e.target.value); setDirty(true); }}
             placeholder="Sanab kiriting"
+            onKeyDown={(e) => { if (e.key === "Enter" && dirty) save(); }}
             className="w-full mt-1 px-3 py-2.5 border border-stone-300 rounded-lg text-base font-bold focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 outline-none" />
         </label>
 
@@ -1219,9 +1220,14 @@ function ExpenseTab({ date, categories, workers, transactions, onAdd, onDelete, 
   const [filterIncomeId, setFilterIncomeId] = useState('all');
   const [showNewCatForm, setShowNewCatForm] = useState(false);
 
+  // Ishchilar oyligi kategoriyalari (alohida bo'limga chiqarildi)
+  const salaryCategories = categories.expense.filter(c => c.trackPayee);
+  const otherCategories = categories.expense.filter(c => !c.trackPayee);
+  const activeWorkers = workers.filter(w => w.active !== false);
+
   const filteredCats = filterIncomeId === 'all'
-    ? categories.expense
-    : categories.expense.filter(c => c.linkedTo === filterIncomeId);
+    ? otherCategories
+    : otherCategories.filter(c => c.linkedTo === filterIncomeId);
 
   return (
     <div className="space-y-3">
@@ -1230,6 +1236,18 @@ function ExpenseTab({ date, categories, workers, transactions, onAdd, onDelete, 
         <h2 className="text-lg font-semibold text-slate-900">Chiqimlar kiritish</h2>
       </div>
       <p className="text-xs text-slate-500 -mt-2">Sana: {formatUzbDateFull(date)}</p>
+
+      {/* Ishchilar oyligi paneli — alohida bo'lim, eng yuqorida */}
+      {salaryCategories.map(cat => {
+        const catTxs = transactions.filter(t => t.categoryId === cat.id);
+        return (
+          <WorkerSalaryPanel key={cat.id}
+            cat={cat} date={date} workers={activeWorkers}
+            catTxs={catTxs}
+            onAdd={(data) => onAdd({ type: 'expense', categoryId: cat.id, ...data, date })}
+            onDelete={onDelete} />
+        );
+      })}
 
       <button onClick={() => setShowNewCatForm(!showNewCatForm)}
         className="w-full bg-white border-2 border-dashed border-stone-300 hover:border-emerald-500 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
@@ -1276,7 +1294,6 @@ function ExpenseTab({ date, categories, workers, transactions, onAdd, onDelete, 
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-semibold text-slate-900 truncate">{cat.name}</p>
                     {cat.isCashless && <span className="text-[9px] bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded font-bold">PLASTIK</span>}
-                    {cat.trackPayee && <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold">ISHCHILAR</span>}
                   </div>
                   {linkedCat && <p className="text-[11px] text-slate-500 mt-0.5">{linkedCat.icon} {linkedCat.name}</p>}
                 </div>
@@ -1288,15 +1305,8 @@ function ExpenseTab({ date, categories, workers, transactions, onAdd, onDelete, 
             </button>
             {isOpen && (
               <div className="border-t border-stone-200 bg-stone-50 p-4">
-                {cat.trackPayee && workers.filter(w => w.active !== false).length > 0 ? (
-                  <WorkerSalaryQuickEntry
-                    cat={cat} date={date} workers={workers.filter(w => w.active !== false)}
-                    catTxs={catTxs}
-                    onAdd={(data) => onAdd({ type: 'expense', categoryId: cat.id, ...data, date })} />
-                ) : (
-                  <QuickAddForm expenseCat={cat} variant="expense" workers={workers}
-                    onSubmit={(data) => { onAdd({ type: 'expense', categoryId: cat.id, ...data, date }); setOpenCat(null); }} />
-                )}
+                <QuickAddForm expenseCat={cat} variant="expense" workers={workers}
+                  onSubmit={(data) => { onAdd({ type: 'expense', categoryId: cat.id, ...data, date }); setOpenCat(null); }} />
                 {catTxs.length > 0 && (
                   <div className="mt-4 space-y-1.5">
                     <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Bugungi yozuvlar</p>
@@ -1396,6 +1406,7 @@ function QuickAddForm({ category, expenseCat, onSubmit, variant = 'income', work
           <label className="block">
             <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">Sotilgan dona soni</span>
             <input type="number" inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0"
+            onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
               className="w-full mt-1 px-3 py-2.5 border border-stone-300 rounded-lg text-base font-semibold focus:border-emerald-600 outline-none" />
           </label>
           {trackEaten && (
@@ -1418,6 +1429,7 @@ function QuickAddForm({ category, expenseCat, onSubmit, variant = 'income', work
               {isCommission ? "Umumiy sotuv summasi (so'm)" : "Summa (so'm)"}
             </span>
             <input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0"
+            onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
               className="w-full mt-1 px-3 py-2.5 border border-stone-300 rounded-lg text-base font-semibold focus:border-emerald-600 outline-none" />
           </label>
           {commissionShare !== null && amount && (
@@ -1439,6 +1451,7 @@ function QuickAddForm({ category, expenseCat, onSubmit, variant = 'income', work
                 </label>
                 {payee === '__other__' && (
                   <input type="text" value={customPayee} onChange={(e) => setCustomPayee(e.target.value)} placeholder="Ism familiya"
+                    onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
                     className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-amber-600 outline-none" />
                 )}
               </>
@@ -1446,6 +1459,7 @@ function QuickAddForm({ category, expenseCat, onSubmit, variant = 'income', work
               <label className="block">
                 <span className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">Kim oldi?</span>
                 <input type="text" value={payee} onChange={(e) => setPayee(e.target.value)} placeholder="Ism familiya"
+                  onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
                   className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-amber-600 outline-none" />
                 <p className="text-[10px] text-slate-500 mt-1">Ishchilar ro'yxati Sozlama → Ishchilarda</p>
               </label>
@@ -1478,6 +1492,7 @@ function QuickAddForm({ category, expenseCat, onSubmit, variant = 'income', work
       <label className="block">
         <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">Izoh (ixtiyoriy)</span>
         <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Qo'shimcha ma'lumot"
+          onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
           className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-emerald-600 outline-none" />
       </label>
       <button onClick={submit} disabled={isPerUnit ? !qty || Number(qty) <= 0 : !amount || Number(amount) <= 0}
@@ -1521,119 +1536,194 @@ function TxRow({ tx, onDelete, accent }) {
 }
 
 // ============================================================
-// WORKER SALARY QUICK ENTRY (#5) — har ishchiga 1 satr, summa va saqlash
+// WORKER SALARY PANEL — alohida bo'lim, tahrirlanadi, bitta saqlash
 // ============================================================
-function WorkerSalaryQuickEntry({ cat, date, workers, catTxs, onAdd }) {
-  const [amounts, setAmounts] = useState({});
-  const [notes, setNotes] = useState({});
-  const [showOther, setShowOther] = useState(false);
-  const [otherName, setOtherName] = useState('');
-  const [otherAmount, setOtherAmount] = useState('');
-  const [otherNote, setOtherNote] = useState('');
-
-  // Bugun har ishchiga qancha to'langan
-  const paidByWorker = useMemo(() => {
+function WorkerSalaryPanel({ cat, date, workers, catTxs, onAdd, onDelete }) {
+  // Bugun har ishchiga qancha to'langan (workerId yoki ism orqali)
+  const todayByWorker = useMemo(() => {
     const m = {};
     catTxs.forEach(t => {
-      const key = t.payeeWorkerId || t.payee;
+      const key = t.payeeWorkerId || (t.payee ? `name:${t.payee}` : null);
       if (key) m[key] = (m[key] || 0) + Number(t.amount);
     });
     return m;
   }, [catTxs]);
 
-  function saveWorker(w) {
-    const a = Number(amounts[w.id]);
-    if (!a || a <= 0) return;
-    onAdd({
-      amount: a,
-      payee: w.name,
-      payeeWorkerId: w.id,
-      note: notes[w.id] || '',
+  // Input qiymatlari — boshlang'ich bugungi summalar bilan to'ldirilgan
+  const [amounts, setAmounts] = useState({});
+  const [showOther, setShowOther] = useState(false);
+  const [otherName, setOtherName] = useState('');
+  const [otherAmount, setOtherAmount] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  // workers o'zgarsa yoki kun o'zgarsa — input'larni yangilash
+  useEffect(() => {
+    const init = {};
+    workers.forEach(w => {
+      const v = todayByWorker[w.id];
+      init[w.id] = v ? String(v) : '';
     });
-    // Field'ni tozalash
-    setAmounts(prev => ({ ...prev, [w.id]: '' }));
-    setNotes(prev => ({ ...prev, [w.id]: '' }));
+    setAmounts(init);
+  }, [workers, date, todayByWorker]);
+
+  // Faqat o'zgarganlarni aniqlash
+  const dirtyWorkers = useMemo(() => {
+    return workers.filter(w => {
+      const current = todayByWorker[w.id] || 0;
+      const input = Number(amounts[w.id] || 0);
+      return input !== current;
+    });
+  }, [workers, amounts, todayByWorker]);
+
+  const hasChanges = dirtyWorkers.length > 0;
+
+  async function saveAll() {
+    if (!hasChanges) return;
+    setSaving(true);
+    try {
+      for (const w of dirtyWorkers) {
+        const newAmount = Number(amounts[w.id] || 0);
+        // Eski bugungi yozuvlarni o'chirish (faqat ushbu ishchiga tegishli)
+        const old = catTxs.filter(t => t.payeeWorkerId === w.id);
+        for (const t of old) {
+          await onDelete(t.id);
+        }
+        // Yangi summa > 0 bo'lsa, yangi yozuv yaratish
+        if (newAmount > 0) {
+          await onAdd({
+            amount: newAmount,
+            payee: w.name,
+            payeeWorkerId: w.id,
+          });
+        }
+      }
+    } finally {
+      setSaving(false);
+    }
   }
 
   function saveOther() {
     const a = Number(otherAmount);
     if (!a || a <= 0 || !otherName.trim()) return;
-    onAdd({
-      amount: a,
-      payee: otherName.trim(),
-      note: otherNote || '',
-    });
-    setOtherName(''); setOtherAmount(''); setOtherNote('');
-    setShowOther(false);
+    onAdd({ amount: a, payee: otherName.trim() });
+    setOtherName(''); setOtherAmount(''); setShowOther(false);
   }
 
+  // Bugungi to'lovlar ro'yxati (vaqt bo'yicha so'nggidan oldingiga)
+  const todayPaymentsList = [...catTxs].sort((a, b) => {
+    const ta = a.createdAt || '';
+    const tb = b.createdAt || '';
+    return tb.localeCompare(ta);
+  });
+  const todayTotal = todayPaymentsList.reduce((s, t) => s + Number(t.amount), 0);
+
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2 mb-1">
+    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+      <div className="bg-amber-50 px-4 py-3 border-b border-stone-200 flex items-center gap-2">
         <Users className="w-4 h-4 text-amber-700" />
-        <p className="text-xs font-semibold text-amber-900 uppercase tracking-wider">Ishchilarga to'lash</p>
+        <h3 className="text-sm font-semibold text-amber-900 flex-1">{cat.name}</h3>
+        {hasChanges && <span className="text-[9px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded font-bold">{dirtyWorkers.length} ta o'zgarish</span>}
       </div>
-      {workers.map(w => {
-        const paid = paidByWorker[w.id] || paidByWorker[w.name] || 0;
-        return (
-          <div key={w.id} className="bg-white border border-stone-200 rounded-lg p-2.5">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
-                <span className="text-xs font-bold text-amber-800">{w.name.charAt(0).toUpperCase()}</span>
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  {w.code && <span className="text-[9px] bg-stone-200 text-stone-700 font-mono px-1 py-0.5 rounded font-bold">{w.code}</span>}
-                  <p className="text-sm font-semibold text-slate-900 truncate">{w.name}</p>
+
+      <div className="p-4 space-y-2">
+        {workers.length === 0 && (
+          <p className="text-center text-sm text-slate-400 py-4">
+            Faol ishchi yo'q. <span className="text-slate-600">Sozlama → Ishchilar</span> dan qo'shing.
+          </p>
+        )}
+
+        {workers.map(w => {
+          const todayPaid = todayByWorker[w.id] || 0;
+          const inputVal = amounts[w.id] || '';
+          const isDirty = Number(inputVal || 0) !== todayPaid;
+          return (
+            <div key={w.id} className={`grid grid-cols-[auto_1fr_2fr] gap-2 items-center p-2 rounded-lg ${isDirty ? 'bg-amber-50 border border-amber-200' : 'bg-stone-50'}`}>
+              {w.code ? (
+                <span className="text-[10px] bg-stone-200 text-stone-700 font-mono px-1.5 py-1 rounded font-bold">{w.code}</span>
+              ) : (
+                <div className="w-6 h-6 bg-amber-100 rounded-full flex items-center justify-center">
+                  <span className="text-[11px] font-bold text-amber-800">{w.name.charAt(0).toUpperCase()}</span>
                 </div>
-                {paid > 0 && <p className="text-[10px] text-emerald-700 font-semibold">Bugun: {fmtSom(paid)}</p>}
+              )}
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-900 truncate">{w.name}</p>
+                {todayPaid > 0 && <p className="text-[10px] text-emerald-700">Bugun: {fmtSom(todayPaid)}</p>}
               </div>
-            </div>
-            <div className="grid grid-cols-[1fr_auto] gap-1.5">
-              <input type="number" inputMode="numeric"
-                value={amounts[w.id] || ''}
+              <input type="number" inputMode="numeric" value={inputVal}
                 onChange={(e) => setAmounts(prev => ({ ...prev, [w.id]: e.target.value }))}
-                placeholder="Summa"
-                className="px-2 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-amber-600 outline-none" />
-              <button onClick={() => saveWorker(w)}
-                disabled={!amounts[w.id] || Number(amounts[w.id]) <= 0}
-                className="bg-amber-600 hover:bg-amber-700 disabled:bg-stone-300 text-white font-semibold px-3 rounded-lg text-sm flex items-center gap-1">
-                <Save className="w-3.5 h-3.5" />
-              </button>
+                onKeyDown={(e) => { if (e.key === 'Enter') saveAll(); }}
+                placeholder="0"
+                className="px-2 py-2 border border-stone-300 rounded-lg text-sm font-semibold text-right focus:border-amber-600 outline-none bg-white" />
             </div>
-            <input type="text"
-              value={notes[w.id] || ''}
-              onChange={(e) => setNotes(prev => ({ ...prev, [w.id]: e.target.value }))}
-              placeholder="Izoh (ixtiyoriy)"
-              className="w-full mt-1.5 px-2 py-1.5 border border-stone-200 rounded-lg text-xs focus:border-amber-600 outline-none" />
-          </div>
-        );
-      })}
+          );
+        })}
 
-      <button onClick={() => setShowOther(!showOther)}
-        className="w-full mt-2 bg-white border border-dashed border-stone-300 hover:border-stone-400 text-slate-600 font-medium py-2 rounded-lg text-xs flex items-center justify-center gap-1.5">
-        {showOther ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-        {showOther ? 'Bekor' : "Boshqa kishi (qo'lda)"}
-      </button>
-
-      {showOther && (
-        <div className="bg-white border border-stone-200 rounded-lg p-3 space-y-2">
-          <input type="text" value={otherName} onChange={(e) => setOtherName(e.target.value)}
-            placeholder="Ism familiya"
-            className="w-full px-2 py-2 border border-stone-300 rounded-lg text-sm focus:border-amber-600 outline-none" />
-          <input type="number" inputMode="numeric" value={otherAmount} onChange={(e) => setOtherAmount(e.target.value)}
-            placeholder="Summa"
-            className="w-full px-2 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-amber-600 outline-none" />
-          <input type="text" value={otherNote} onChange={(e) => setOtherNote(e.target.value)}
-            placeholder="Izoh"
-            className="w-full px-2 py-1.5 border border-stone-200 rounded-lg text-xs focus:border-amber-600 outline-none" />
-          <button onClick={saveOther}
-            disabled={!otherName.trim() || !otherAmount || Number(otherAmount) <= 0}
-            className="w-full bg-amber-600 hover:bg-amber-700 disabled:bg-stone-300 text-white font-semibold py-2 rounded-lg text-sm flex items-center justify-center gap-1.5">
-            <Save className="w-3.5 h-3.5" />Saqlash
+        {workers.length > 0 && (
+          <button onClick={saveAll} disabled={!hasChanges || saving}
+            className={`w-full mt-2 font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm transition-colors ${
+              hasChanges
+                ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                : 'bg-stone-200 text-stone-400 cursor-not-allowed'
+            }`}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {saving ? 'Saqlanmoqda...' : hasChanges ? 'Hammasini saqlash' : 'O\'zgarish yo\'q'}
           </button>
-        </div>
-      )}
+        )}
+
+        <button onClick={() => setShowOther(!showOther)}
+          className="w-full bg-white border border-dashed border-stone-300 hover:border-stone-400 text-slate-600 font-medium py-2 rounded-lg text-xs flex items-center justify-center gap-1.5">
+          {showOther ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+          {showOther ? 'Bekor' : "Boshqa kishi (ro'yxatda yo'q)"}
+        </button>
+
+        {showOther && (
+          <div className="bg-stone-50 border border-stone-200 rounded-lg p-3 space-y-2">
+            <input type="text" value={otherName} onChange={(e) => setOtherName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') saveOther(); }}
+              placeholder="Ism familiya" autoFocus
+              className="w-full px-2 py-2 border border-stone-300 rounded-lg text-sm focus:border-amber-600 outline-none" />
+            <input type="number" inputMode="numeric" value={otherAmount} onChange={(e) => setOtherAmount(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') saveOther(); }}
+              placeholder="Summa"
+              className="w-full px-2 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-amber-600 outline-none" />
+            <button onClick={saveOther}
+              disabled={!otherName.trim() || !otherAmount || Number(otherAmount) <= 0}
+              className="w-full bg-amber-600 hover:bg-amber-700 disabled:bg-stone-300 text-white font-semibold py-2 rounded-lg text-sm flex items-center justify-center gap-1.5">
+              <Save className="w-3.5 h-3.5" />Qo'shish
+            </button>
+          </div>
+        )}
+
+        {/* Bugungi to'lovlar — ixcham ro'yxat (eng pastida) */}
+        {todayPaymentsList.length > 0 && (
+          <div className="mt-4 pt-3 border-t border-stone-200">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Bugun berilgan</p>
+              <p className="text-[11px] font-bold text-amber-800">Jami: {fmtSom(todayTotal)}</p>
+            </div>
+            <div className="space-y-1">
+              {todayPaymentsList.map(t => {
+                const time = t.createdAt ? new Date(t.createdAt).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' }) : '';
+                const w = t.payeeWorkerId ? workers.find(x => x.id === t.payeeWorkerId) : null;
+                const codeStr = w?.code ? `[${w.code}] ` : '';
+                return (
+                  <div key={t.id} className="flex items-center gap-2 px-2 py-1 bg-stone-50 rounded text-xs">
+                    {time && <span className="text-slate-400 font-mono w-10 flex-shrink-0">{time}</span>}
+                    <span className="flex-1 truncate text-slate-700">
+                      {codeStr && <span className="font-mono text-stone-600">{codeStr}</span>}
+                      <span className="font-medium">{t.payee || '—'}</span>
+                    </span>
+                    <span className="font-bold text-amber-800 whitespace-nowrap">{fmtSom(t.amount)}</span>
+                    <button onClick={() => onDelete(t.id)} className="text-slate-300 hover:text-rose-600 p-0.5">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1758,16 +1848,19 @@ function DrinkDayCard({ drink, start, added, end, date, onSave }) {
         <label className="block">
           <span className="text-[10px] font-semibold text-slate-500 uppercase">Boshlang'ich</span>
           <input type="number" inputMode="numeric" value={startVal} onChange={(e) => { setStartVal(e.target.value); setDirty(true); }}
+            onKeyDown={(e) => { if (e.key === "Enter" && dirty) save(); }}
             className="w-full mt-1 px-2 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
         </label>
         <label className="block">
           <span className="text-[10px] font-semibold text-slate-500 uppercase">Qo'shildi</span>
           <input type="number" inputMode="numeric" value={addedVal} onChange={(e) => { setAddedVal(e.target.value); setDirty(true); }}
+            onKeyDown={(e) => { if (e.key === "Enter" && dirty) save(); }}
             className="w-full mt-1 px-2 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
         </label>
         <label className="block">
           <span className="text-[10px] font-semibold text-slate-500 uppercase">Qoldi</span>
           <input type="number" inputMode="numeric" value={endVal} onChange={(e) => { setEndVal(e.target.value); setDirty(true); }} placeholder="—"
+            onKeyDown={(e) => { if (e.key === "Enter" && dirty) save(); }}
             className="w-full mt-1 px-2 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
         </label>
       </div>
@@ -1804,17 +1897,20 @@ function DrinkForm({ initial, onSubmit, onCancel }) {
       <label className="block">
         <span className="text-[11px] font-semibold text-slate-600 uppercase">Nomi</span>
         <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Kola 0.5L"
+          onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
           className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-emerald-600 outline-none" />
       </label>
       <div className="grid grid-cols-2 gap-2">
         <label className="block">
           <span className="text-[11px] font-semibold text-slate-600 uppercase">Tan narx</span>
           <input type="number" inputMode="numeric" value={purchasePrice} onChange={(e) => setPurchasePrice(e.target.value)} placeholder="6000"
+            onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
             className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
         </label>
         <label className="block">
           <span className="text-[11px] font-semibold text-slate-600 uppercase">Sotuv narx</span>
           <input type="number" inputMode="numeric" value={salePrice} onChange={(e) => setSalePrice(e.target.value)} placeholder="10000"
+            onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
             className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
         </label>
       </div>
@@ -2052,12 +2148,14 @@ function DebtForm({ initial, defaultType, onSubmit, onCancel }) {
       <label className="block">
         <span className="text-[11px] font-semibold text-slate-600 uppercase">Ism / Tashkilot</span>
         <input type="text" value={partyName} onChange={(e) => setPartyName(e.target.value)} placeholder="Masalan: Aziz aka"
+          onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
           className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-emerald-600 outline-none" />
       </label>
 
       <label className="block">
         <span className="text-[11px] font-semibold text-slate-600 uppercase">Summa (so'm)</span>
         <input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0"
+            onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
           className="w-full mt-1 px-3 py-2.5 border border-stone-300 rounded-lg text-base font-semibold focus:border-emerald-600 outline-none" />
       </label>
 
@@ -2077,6 +2175,7 @@ function DebtForm({ initial, defaultType, onSubmit, onCancel }) {
       <label className="block">
         <span className="text-[11px] font-semibold text-slate-600 uppercase">Izoh (ixtiyoriy)</span>
         <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Nima uchun"
+          onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
           className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-emerald-600 outline-none" />
       </label>
 
@@ -2102,6 +2201,7 @@ function PaymentForm({ maxAmount, onSubmit, onCancel }) {
     <div className="space-y-2">
       <p className="text-xs font-semibold text-slate-700">To'langan summa (qoldiq: {fmtSom(maxAmount)})</p>
       <input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" autoFocus
+        onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
         className="w-full px-3 py-2.5 border border-stone-300 rounded-lg text-base font-semibold focus:border-emerald-600 outline-none" />
       <div className="grid grid-cols-3 gap-2">
         <button onClick={onCancel} className="bg-stone-200 hover:bg-stone-300 text-slate-700 font-semibold py-2 rounded-lg text-xs">Bekor</button>
@@ -2652,11 +2752,13 @@ function CategoryForm({ type, incomeCategories, initial, onSubmit, onCancel }) {
         <label className="block">
           <span className="text-[10px] font-semibold text-slate-600 uppercase">Belgi</span>
           <input type="text" value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="🥟" maxLength={2}
+            onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
             className="w-full mt-1 px-2 py-2 border border-stone-300 rounded-lg text-base text-center focus:border-emerald-600 outline-none" />
         </label>
         <label className="block col-span-2">
           <span className="text-[10px] font-semibold text-slate-600 uppercase">Nomi</span>
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Bo'lim nomi"
+            onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
             className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-emerald-600 outline-none" />
         </label>
       </div>
@@ -2673,6 +2775,7 @@ function CategoryForm({ type, incomeCategories, initial, onSubmit, onCancel }) {
               <label className="block ml-6">
                 <span className="text-[10px] font-semibold text-slate-600 uppercase">Bir dona narxi</span>
                 <input type="number" inputMode="numeric" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} placeholder="5000"
+                  onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
                   className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
               </label>
               <label className="flex items-center gap-2 cursor-pointer ml-6">
@@ -2691,6 +2794,7 @@ function CategoryForm({ type, incomeCategories, initial, onSubmit, onCancel }) {
             <label className="block ml-6">
               <span className="text-[10px] font-semibold text-slate-600 uppercase">Ulush foizi (%)</span>
               <input type="number" inputMode="numeric" value={commissionPercent} onChange={(e) => setCommissionPercent(e.target.value)} placeholder="24"
+                onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
                 className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
             </label>
           )}
@@ -2835,11 +2939,13 @@ function WorkerForm({ initial, onSubmit, onCancel }) {
         <label className="block">
           <span className="text-[10px] font-semibold text-slate-600 uppercase">ID / Kod</span>
           <input type="text" value={code} onChange={(e) => setCode(e.target.value)} placeholder="W001"
+            onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
             className="w-full mt-1 px-2 py-2 border border-stone-300 rounded-lg text-sm font-mono text-center focus:border-emerald-600 outline-none" />
         </label>
         <label className="block col-span-2">
           <span className="text-[10px] font-semibold text-slate-600 uppercase">Ism familiya</span>
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Aziz Karimov"
+            onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
             className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-emerald-600 outline-none" />
         </label>
       </div>
@@ -2847,6 +2953,7 @@ function WorkerForm({ initial, onSubmit, onCancel }) {
       <label className="block">
         <span className="text-[11px] font-semibold text-slate-600 uppercase">Lavozim (ixtiyoriy)</span>
         <input type="text" value={position} onChange={(e) => setPosition(e.target.value)} placeholder="Oshpaz / Ofitsiant"
+          onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
           className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-emerald-600 outline-none" />
       </label>
       <label className="flex items-center gap-2 cursor-pointer">
@@ -3149,11 +3256,13 @@ function RecipientForm({ initial, onSubmit, onCancel }) {
       <label className="block">
         <span className="text-[11px] font-semibold text-slate-600 uppercase">Nomi</span>
         <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Aka / Hisobchi"
+          onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
           className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-emerald-600 outline-none" />
       </label>
       <label className="block">
         <span className="text-[11px] font-semibold text-slate-600 uppercase">Chat ID</span>
         <input type="text" inputMode="numeric" value={chatId} onChange={(e) => setChatId(e.target.value)} placeholder="123456789"
+          onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
           className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm font-mono focus:border-emerald-600 outline-none" />
       </label>
       <label className="block">

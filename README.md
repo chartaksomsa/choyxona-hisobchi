@@ -1,25 +1,24 @@
-# Choyxona Hisobchi v4.1
+# Choyxona Hisobchi v4.2
 
 Mobil-birinchi cafe accounting PWA — React + Vite + Supabase + Tailwind.
 
-## v4.1 yangiliklari
+## v4.2 yangiliklari
 
-1. **Telegram batafsil hisobotlar** — endi 5 turdagi hisobot:
-   - 🥤 Suvlar — qisqa
-   - 🥤 Suvlar — batafsil (qaysi suv qo'shildi, har bir suv bo'yicha sotuv/foyda)
-   - ☕ To'liq — qisqa
-   - ☕ To'liq — batafsil (har ishchi qancha oldi, har chiqim batafsil)
-   - 📋 Hammasi — har bir yozuv (vaqt belgisi bilan)
+1. **ENTER bilan saqlash** — Endi har qanday formada ENTER bossangiz, summa/yozuv saqlanadi. Saqlash tugmasini topib bosish shart emas.
 
-2. **Ishchilar uchun ID/Kod** — har ishchiga `W001`, `ofitsant-1` kabi qisqa kod berish mumkin. Ro'yxatda, hisobotda, dropdownda ham ko'rinadi.
+2. **Ishchilar oyligi qayta ishlandi** — alohida bo'lim, Chiqim tabining eng yuqorisida:
+   - Hamma faol ishchilar avtomatik chiqib turadi
+   - Har birining yoniga summa yozasiz (allaqachon bugun to'lasangiz, summa avtomatik to'ldirilgan bo'ladi va tahrirlash mumkin)
+   - **Bitta** "Hammasini saqlash" tugmasi (har bir ishchiga alohida emas)
+   - Bo'limning eng pastida bugungi to'lovlar ixcham ro'yxati: vaqt, ism, summa, jami
 
-3. **Qarzlar Hisobot tabiga ko'chirildi** — bottom nav 6 ta tabga tushdi (qulayroq). Qarzlar Hisobot tabida burishtirilgan ko'rinishda.
+## v4.1 dagilar
 
-4. **Print 80mm chek** — Hisobot tabida PDF yoniga **Chek (80mm)** tugmasi. Xprinter-style printerlarga to'g'ridan-to'g'ri chiqaradi (browserdagi Print dialog).
-
-5. **Ishchilar oyligi soddalashtirildi** — Chiqim → Ishchilar oyligi tabini ochsangiz, hamma faol ishchilarning ismi avtomatik chiqadi. Har birining yoniga summa yozib, tugmani bosish kifoya. Bonus: bugun ishchiga qancha to'langan bo'lsa, ko'rsatib turadi.
-
-6. **Long Telegram messages** — Agar hisobot 4096 belgidan oshsa, qism-qism yuboriladi (avtomatik).
+1. Telegram batafsil hisobotlar (5 tur)
+2. Ishchilar uchun ID/Kod
+3. Qarzlar Hisobot tabiga ko'chirildi
+4. Print 80mm chek
+5. Ishchilar oyligi avto ro'yxat (asoslangan v4.2)
 
 ## v4.0 dagilar (avvalgi versiyadan)
 
