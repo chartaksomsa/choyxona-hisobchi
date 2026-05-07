@@ -1579,24 +1579,29 @@ function WorkerSalaryPanel({ cat, date, workers, catTxs, onAdd, onDelete }) {
 
   async function saveAll() {
     if (!hasChanges) return;
+    // Loop davomida state o'zgarmasligi uchun snapshot olamiz
+    const snapshot = dirtyWorkers.map(w => ({
+      worker: w,
+      newAmount: Number(amounts[w.id] || 0),
+      oldTxIds: catTxs.filter(t => t.payeeWorkerId === w.id).map(t => t.id).filter(Boolean),
+    }));
     setSaving(true);
     try {
-      for (const w of dirtyWorkers) {
-        const newAmount = Number(amounts[w.id] || 0);
-        // Eski bugungi yozuvlarni o'chirish (faqat ushbu ishchiga tegishli)
-        const old = catTxs.filter(t => t.payeeWorkerId === w.id);
-        for (const t of old) {
-          await onDelete(t.id);
+      for (const item of snapshot) {
+        for (const oldId of item.oldTxIds) {
+          await onDelete(oldId);
         }
-        // Yangi summa > 0 bo'lsa, yangi yozuv yaratish
-        if (newAmount > 0) {
+        if (item.newAmount > 0) {
           await onAdd({
-            amount: newAmount,
-            payee: w.name,
-            payeeWorkerId: w.id,
+            amount: item.newAmount,
+            payee: item.worker.name,
+            payeeWorkerId: item.worker.id,
           });
         }
       }
+    } catch (e) {
+      console.error('Save salaries failed:', e);
+      alert(`Saqlash xato: ${e.message}`);
     } finally {
       setSaving(false);
     }
@@ -1611,9 +1616,9 @@ function WorkerSalaryPanel({ cat, date, workers, catTxs, onAdd, onDelete }) {
 
   // Bugungi to'lovlar ro'yxati (vaqt bo'yicha so'nggidan oldingiga)
   const todayPaymentsList = [...catTxs].sort((a, b) => {
-    const ta = a.createdAt || '';
-    const tb = b.createdAt || '';
-    return tb.localeCompare(ta);
+    const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return tb - ta;
   });
   const todayTotal = todayPaymentsList.reduce((s, t) => s + Number(t.amount), 0);
 
