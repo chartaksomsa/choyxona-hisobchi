@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Home, TrendingUp, TrendingDown, Coffee, Settings as SettingsIcon,
   BarChart3, Plus, Trash2, Edit3, Save, X, Calendar, Wallet,
@@ -21,8 +21,27 @@ import {
 // which Vite splits into its own chunk via vite.config.js manualChunks.
 
 // ============== HELPERS ==============
-const fmt = (n) => new Intl.NumberFormat('uz-UZ').format(Math.round(n || 0));
+// Raqamlar uchun: 1234567 → "1 234 567" (har minglik bo'shliq)
+const fmt = (n) => {
+  if (n == null || n === '') return '0';
+  return Math.round(Number(n) || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+};
 const fmtSom = (n) => `${fmt(n)} so'm`;
+
+// "230k" yoki "230К" → 230000, "1.5m" → 1500000
+function parseAmount(input) {
+  if (input == null || input === '') return 0;
+  if (typeof input === 'number') return input;
+  let s = String(input).trim().toLowerCase().replace(/\s/g, '').replace(/,/g, '.');
+  // Kirill 'к' va 'м' ni lotinga o'tkazamiz
+  s = s.replace(/к/g, 'k').replace(/м/g, 'm');
+  const m = s.match(/^(-?\d+(?:\.\d+)?)\s*([km])?$/);
+  if (!m) return Number(s) || 0;
+  const n = parseFloat(m[1]);
+  if (m[2] === 'k') return n * 1000;
+  if (m[2] === 'm') return n * 1000000;
+  return n;
+}
 const todayStr = () => new Date().toISOString().split('T')[0];
 const genId = () => Date.now().toString(36) + Math.random().toString(36).substring(2, 7);
 
@@ -363,9 +382,10 @@ function ChoyxonaHisobchi({ userEmail }) {
     setMigrationOffer(false);
   }
 
-  function showToast(msg, type = 'success') {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 2400);
+  function showToast(msg, type = 'success', action = null) {
+    // action: { label, onClick }
+    setToast({ msg, type, action });
+    setTimeout(() => setToast(null), action ? 5000 : 2400);
   }
 
   // ============= CRUD =============
@@ -404,9 +424,22 @@ function ChoyxonaHisobchi({ userEmail }) {
     showToast("Saqlandi");
   }
   async function deleteTransaction(id) {
+    // Undo uchun o'chirilgan tx'ni saqlab qolamiz
+    const removed = transactions.find(t => t.id === id);
     setTransactions(prev => prev.filter(t => t.id !== id));
     await txDelete(id);
-    showToast("O'chirildi");
+    if (removed) {
+      showToast("O'chirildi", 'success', {
+        label: 'Bekor',
+        onClick: async () => {
+          setTransactions(prev => [...prev, removed]);
+          try { await txInsert(removed); } catch (_) {}
+          showToast("Tiklandi");
+        }
+      });
+    } else {
+      showToast("O'chirildi");
+    }
   }
 
   async function addDrink(drink) {
@@ -446,6 +479,29 @@ function ChoyxonaHisobchi({ userEmail }) {
   async function saveTgConfig(cfg) {
     setTgConfig(cfg);
     await sSet('tg_config', cfg);
+  }
+
+  // Backup'dan tiklash — hamma narsani almashtiradi
+  async function importBackup(data) {
+    if (data.categories) { setCategories(data.categories); await sSet('categories', data.categories); }
+    if (data.drinks) { setDrinks(data.drinks); await sSet('drinks', data.drinks); }
+    if (data.drinkDaily) { setDrinkDaily(data.drinkDaily); await sSet('drink_daily', data.drinkDaily); }
+    if (data.cashRegister) { setCashRegister(data.cashRegister); await sSet('cash_register', data.cashRegister); }
+    if (data.debts) { setDebts(data.debts); await sSet('debts', data.debts); }
+    if (data.workers) { setWorkers(data.workers); await sSet('workers', data.workers); }
+    if (data.tgConfig) { setTgConfig(data.tgConfig); await sSet('tg_config', data.tgConfig); }
+    // Tranzaksiyalar — eski hammasini o'chirib, yangi to'plamni qo'yamiz
+    if (data.transactions) {
+      // Avval eski tx larni o'chiramiz (cloud)
+      for (const t of transactions) {
+        try { await txDelete(t.id); } catch (_) {}
+      }
+      // Yangilarini qo'yamiz
+      for (const t of data.transactions) {
+        try { await txInsert(t); } catch (_) {}
+      }
+      setTransactions(data.transactions);
+    }
   }
 
   async function addWorker(w) {
@@ -492,7 +548,7 @@ function ChoyxonaHisobchi({ userEmail }) {
   async function recordDebtPayment(id, amount) {
     const debt = debts.find(d => d.id === id);
     if (!debt) return;
-    const newRemaining = Math.max(0, Number(debt.remaining) - Number(amount));
+    const newRemaining = Math.max(0, Number(debt.remaining) - parseAmount(amount));
     const updates = { remaining: newRemaining };
     if (newRemaining === 0) {
       updates.status = 'paid';
@@ -548,17 +604,28 @@ function ChoyxonaHisobchi({ userEmail }) {
     const incomeByCategory = {}, expenseByCategory = {}, perUnitDetails = {};
     let totalIncome = 0, totalExpense = 0;
     let cardIncome = 0;       // YANGI: paymentMethod='card' bo'lgan tushum
+    let cashIncome = 0;       // Naqd tushum (kassaga tushgan)
     let cashlessExpense = 0;  // ESKI: isCashless chiqim (backward-compat)
+    let cashExpense = 0;      // Kassadan to'langan chiqim (oylik, mahsulot va h.k.)
 
     dayTransactions.forEach(t => {
       if (t.type === 'income') {
         const cat = categories.income.find(c => c.id === t.categoryId);
-        const realAmount = cat?.hasCommission
-          ? Number(t.amount) * (Number(cat.commissionPercent) || 0) / 100
-          : Number(t.amount);
+        // BUG FIX 1: somsa kabi perUnit + trackEaten kategoriyalarda
+        // ishchilar yegan donalar tushumdan ayirilishi kerak
+        let realAmount;
+        if (cat?.perUnit && cat?.trackEaten && t.qty != null) {
+          const sold = Math.max(0, Number(t.qty) - Number(t.qtyEaten || 0));
+          realAmount = sold * Number(cat.unitPrice || 0);
+        } else if (cat?.hasCommission) {
+          realAmount = Number(t.amount) * (Number(cat.commissionPercent) || 0) / 100;
+        } else {
+          realAmount = Number(t.amount);
+        }
         incomeByCategory[t.categoryId] = (incomeByCategory[t.categoryId] || 0) + realAmount;
         totalIncome += realAmount;
         if (t.paymentMethod === 'card') cardIncome += realAmount;
+        else cashIncome += realAmount;
         if (t.qty) {
           if (!perUnitDetails[t.categoryId]) perUnitDetails[t.categoryId] = { qty: 0, qtyEaten: 0 };
           perUnitDetails[t.categoryId].qty += Number(t.qty);
@@ -569,6 +636,7 @@ function ChoyxonaHisobchi({ userEmail }) {
         totalExpense += Number(t.amount);
         const cat = categories.expense.find(c => c.id === t.categoryId);
         if (cat?.isCashless) cashlessExpense += Number(t.amount);
+        else cashExpense += Number(t.amount); // Naqd chiqim (kassadan)
       }
     });
 
@@ -576,18 +644,102 @@ function ChoyxonaHisobchi({ userEmail }) {
     if (suvCat && drinkDayStats.totalRevenue > 0) {
       incomeByCategory[suvCat.id] = (incomeByCategory[suvCat.id] || 0) + drinkDayStats.totalRevenue;
       totalIncome += drinkDayStats.totalRevenue;
-      // Suv tushumi naqd hisoblanadi (default)
+      cashIncome += drinkDayStats.totalRevenue; // Suv naqd hisoblanadi
     }
 
-    // Plastik: yangi card-income + eski isCashless-expense (har ikkalasi ham hisobga olinadi)
+    // Plastik: yangi card-income + eski isCashless-expense
     const totalCashless = cardIncome + cashlessExpense;
+    // BUG FIX 2: Kassada bo'lishi kerak = Naqd tushum − Naqd chiqim
+    const expectedCash = cashIncome - cashExpense;
 
     return {
       incomeByCategory, expenseByCategory, perUnitDetails,
       totalIncome, totalExpense, totalCashless,
-      cardIncome, cashlessExpense
+      cardIncome, cashIncome, cashlessExpense, cashExpense, expectedCash
     };
   }, [dayTransactions, categories, drinkDayStats.totalRevenue]);
+
+  // Tendensiya — bugungi va o'tgan haftadagi/oydagi shu davrni solishtirish
+  const trends = useMemo(() => {
+    function netForDate(dateStr) {
+      let net = 0;
+      transactions.forEach(t => {
+        if (t.date !== dateStr) return;
+        let amt = Number(t.amount);
+        if (t.type === 'income') {
+          const cat = categories.income.find(c => c.id === t.categoryId);
+          if (cat?.perUnit && cat?.trackEaten && t.qty != null) {
+            const sold = Math.max(0, Number(t.qty) - Number(t.qtyEaten || 0));
+            amt = sold * Number(cat.unitPrice || 0);
+          } else if (cat?.hasCommission) {
+            amt = amt * (Number(cat.commissionPercent) || 0) / 100;
+          }
+          net += amt;
+        } else {
+          net -= amt;
+        }
+      });
+      return net;
+    }
+    function netInRange(startStr, endStr) {
+      let net = 0;
+      transactions.forEach(t => {
+        if (t.date < startStr || t.date > endStr) return;
+        let amt = Number(t.amount);
+        if (t.type === 'income') {
+          const cat = categories.income.find(c => c.id === t.categoryId);
+          if (cat?.perUnit && cat?.trackEaten && t.qty != null) {
+            const sold = Math.max(0, Number(t.qty) - Number(t.qtyEaten || 0));
+            amt = sold * Number(cat.unitPrice || 0);
+          } else if (cat?.hasCommission) {
+            amt = amt * (Number(cat.commissionPercent) || 0) / 100;
+          }
+          net += amt;
+        } else {
+          net -= amt;
+        }
+      });
+      return net;
+    }
+    function isoDate(d) { return d.toISOString().split('T')[0]; }
+
+    const today = todayStr();
+    const todayD = new Date(today);
+    // O'tgan haftaning shu kuni
+    const lastWeekSameDay = new Date(todayD); lastWeekSameDay.setDate(lastWeekSameDay.getDate() - 7);
+
+    // Bu hafta dushanba
+    const dow = todayD.getDay() || 7; // 1 (Du) - 7 (Ya)
+    const thisMonday = new Date(todayD); thisMonday.setDate(thisMonday.getDate() - (dow - 1));
+    // O'tgan hafta dushanba va shu kun
+    const lastMonday = new Date(thisMonday); lastMonday.setDate(lastMonday.getDate() - 7);
+    const lastWeekUpToSameDow = new Date(lastWeekSameDay);
+
+    // Bu oy boshi
+    const thisMonthStart = new Date(todayD.getFullYear(), todayD.getMonth(), 1);
+    // O'tgan oyda shu kuni
+    const lastMonthStart = new Date(todayD.getFullYear(), todayD.getMonth() - 1, 1);
+    const lastMonthDayCount = new Date(todayD.getFullYear(), todayD.getMonth(), 0).getDate();
+    const lastMonthSameDay = new Date(todayD.getFullYear(), todayD.getMonth() - 1, Math.min(todayD.getDate(), lastMonthDayCount));
+
+    return {
+      today: {
+        current: netForDate(today),
+        prev: netForDate(isoDate(lastWeekSameDay)),
+        label: "O'tgan haftada shu kun",
+      },
+      week: {
+        current: netInRange(isoDate(thisMonday), today),
+        prev: netInRange(isoDate(lastMonday), isoDate(lastWeekUpToSameDow)),
+        label: "O'tgan haftada shu davr",
+      },
+      month: {
+        current: netInRange(isoDate(thisMonthStart), today),
+        prev: netInRange(isoDate(lastMonthStart), isoDate(lastMonthSameDay)),
+        label: "O'tgan oyda shu davr",
+      },
+    };
+  }, [transactions, categories]);
 
   const debtsStats = useMemo(() => {
     const owedToUs = debts.filter(d => d.type === 'owed_to_us' && d.status === 'pending')
@@ -712,7 +864,7 @@ function ChoyxonaHisobchi({ userEmail }) {
             stats={dayStats} drinkStats={drinkDayStats} cashRegister={cashRegister}
             onSaveCash={saveCashRegister} tgConfig={tgConfig} drinks={drinks}
             drinkDaily={drinkDaily} workers={workers} debts={debts}
-            debtsStats={debtsStats} onToast={showToast} />
+            debtsStats={debtsStats} trends={trends} onToast={showToast} />
         )}
         {activeTab === 'income' && (
           <IncomeTab date={selectedDate} categories={categories.income}
@@ -741,7 +893,9 @@ function ChoyxonaHisobchi({ userEmail }) {
             workerByName={workerByName}
             onAddCat={addCategory} onUpdateCat={updateCategory} onDeleteCat={deleteCategory}
             onAddWorker={addWorker} onUpdateWorker={updateWorker} onDeleteWorker={deleteWorker}
-            tgConfig={tgConfig} onSaveTgConfig={saveTgConfig} onToast={showToast} />
+            tgConfig={tgConfig} onSaveTgConfig={saveTgConfig} onToast={showToast}
+            drinks={drinks} drinkDaily={drinkDaily} cashRegister={cashRegister} debts={debts}
+            onImportData={importBackup} />
         )}
       </main>
 
@@ -772,11 +926,17 @@ function ChoyxonaHisobchi({ userEmail }) {
       </nav>
 
       {toast && (
-        <div className={`fixed bottom-24 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-full shadow-xl flex items-center gap-2 z-40 text-white text-sm font-medium ${
+        <div className={`fixed bottom-24 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-full shadow-xl flex items-center gap-3 z-40 text-white text-sm font-medium ${
           toast.type === 'error' ? 'bg-rose-700' : 'bg-emerald-800'
         }`}>
           {toast.type === 'error' ? <AlertTriangle className="w-4 h-4" /> : <Check className="w-4 h-4" />}
           <span>{toast.msg}</span>
+          {toast.action && (
+            <button onClick={() => { toast.action.onClick(); setToast(null); }}
+              className="bg-white/20 hover:bg-white/30 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider transition-colors">
+              {toast.action.label}
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -786,7 +946,7 @@ function ChoyxonaHisobchi({ userEmail }) {
 // ============================================================
 // DASHBOARD TAB — plastik kartochka kassa bilan birga (#C)
 // ============================================================
-function DashboardTab({ date, categories, transactions, stats, drinkStats, cashRegister, onSaveCash, tgConfig, drinks, drinkDaily, workers, debts, debtsStats, onToast }) {
+function DashboardTab({ date, categories, transactions, stats, drinkStats, cashRegister, onSaveCash, tgConfig, drinks, drinkDaily, workers, debts, debtsStats, trends, onToast }) {
   const net = stats.totalIncome - stats.totalExpense;
 
   return (
@@ -814,11 +974,16 @@ function DashboardTab({ date, categories, transactions, stats, drinkStats, cashR
         </div>
       </div>
 
+      {trends && <TrendsCard trends={trends} />}
+
       <CashRegisterCard
         date={date}
         cashRegister={cashRegister}
         totalIncome={stats.totalIncome}
         totalCashless={stats.totalCashless}
+        cashIncome={stats.cashIncome}
+        cashExpense={stats.cashExpense}
+        expectedCash={stats.expectedCash}
         onSave={onSaveCash}
       />
 
@@ -882,8 +1047,9 @@ function DashboardTab({ date, categories, transactions, stats, drinkStats, cashR
                     )}
                     {unitInfo && (
                       <p className="text-[11px] text-slate-500 mt-0.5">
-                        {unitInfo.qty} dona × {fmt(cat.unitPrice)} so'm
-                        {unitInfo.qtyEaten > 0 && <span className="text-amber-700"> • Ishchilar yedi: {unitInfo.qtyEaten} dona</span>}
+                        {unitInfo.qtyEaten > 0
+                          ? <>Sotildi: <strong>{Math.max(0, unitInfo.qty - unitInfo.qtyEaten)}</strong> dona × {fmt(cat.unitPrice)} <span className="text-amber-700">(yedi: {unitInfo.qtyEaten})</span></>
+                          : <>{unitInfo.qty} dona × {fmt(cat.unitPrice)} so'm</>}
                       </p>
                     )}
                     {cat.autoFromDrinks && drinkStats.totalSold > 0 && (
@@ -964,9 +1130,63 @@ function DashboardTab({ date, categories, transactions, stats, drinkStats, cashR
 }
 
 // ============================================================
+// TRENDS CARD — bugun/hafta/oy o'tgan davrga nisbatan
+// ============================================================
+function TrendsCard({ trends }) {
+  function delta(curr, prev) {
+    const diff = curr - prev;
+    if (prev === 0) return { diff, pct: null };
+    const pct = (diff / Math.abs(prev)) * 100;
+    return { diff, pct };
+  }
+  const items = [
+    { key: 'today', title: 'Bugun', ...trends.today },
+    { key: 'week', title: 'Bu hafta', ...trends.week },
+    { key: 'month', title: 'Bu oy', ...trends.month },
+  ];
+
+  return (
+    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+      <div className="bg-blue-50 px-4 py-2.5 border-b border-stone-200 flex items-center gap-2">
+        <BarChart3 className="w-4 h-4 text-blue-700" />
+        <h3 className="text-sm font-semibold text-blue-900">Tendensiya</h3>
+      </div>
+      <div className="divide-y divide-stone-100">
+        {items.map(it => {
+          const d = delta(it.current, it.prev);
+          const positive = d.diff > 0;
+          const negative = d.diff < 0;
+          const noData = it.prev === 0 && it.current === 0;
+          return (
+            <div key={it.key} className="px-4 py-2.5 flex items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-slate-700">{it.title}</p>
+                <p className="text-[10px] text-slate-400 truncate">{it.label}: {fmtSom(it.prev)}</p>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <p className={`text-sm font-bold ${it.current >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                  {it.current >= 0 ? '+' : ''}{fmtSom(it.current)}
+                </p>
+                {!noData && (
+                  <p className={`text-[10px] font-bold ${
+                    positive ? 'text-emerald-700' : negative ? 'text-rose-700' : 'text-slate-400'
+                  }`}>
+                    {positive ? '↗' : negative ? '↘' : '→'} {d.pct === null ? `${d.diff >= 0 ? '+' : ''}${fmt(d.diff)}` : `${d.pct >= 0 ? '+' : ''}${d.pct.toFixed(0)}%`}
+                  </p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // CASH REGISTER CARD — plastik tarkibi shu yerda (#C)
 // ============================================================
-function CashRegisterCard({ date, cashRegister, totalIncome, totalCashless, onSave }) {
+function CashRegisterCard({ date, cashRegister, totalIncome, totalCashless, cashIncome, cashExpense, expectedCash, onSave }) {
   const existing = cashRegister[date] || {};
   const initialCounted = existing.countedCash !== undefined && existing.countedCash !== null
     ? existing.countedCash
@@ -983,12 +1203,11 @@ function CashRegisterCard({ date, cashRegister, totalIncome, totalCashless, onSa
     setDirty(false);
   }, [date, cashRegister]);
 
-  const naqdSavdo = totalIncome - totalCashless;
-  const counted = countedCash !== '' ? Number(countedCash) : null;
-  const diff = counted !== null ? counted - naqdSavdo : null;
+  const counted = countedCash !== '' ? parseAmount(countedCash) : null;
+  const diff = counted !== null ? counted - expectedCash : null;
 
   function save() {
-    onSave(date, { countedCash: countedCash === '' ? null : Number(countedCash) });
+    onSave(date, { countedCash: countedCash === '' ? null : parseAmount(countedCash) });
     setDirty(false);
   }
 
@@ -999,14 +1218,14 @@ function CashRegisterCard({ date, cashRegister, totalIncome, totalCashless, onSa
         <h3 className="text-sm font-semibold text-amber-900">Kunlik kassa balansi</h3>
       </div>
       <div className="p-4 space-y-3">
-        {/* Naqd va plastik tarkibi — shu yerda (#C) */}
+        {/* Naqd va plastik tarkibi */}
         <div className="grid grid-cols-2 gap-2">
           <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
             <div className="flex items-center gap-1.5 mb-1">
               <Banknote className="w-3.5 h-3.5 text-emerald-700" />
               <p className="text-[10px] font-bold text-emerald-900 uppercase">Naqd savdo</p>
             </div>
-            <p className="text-base font-bold text-emerald-900">{fmtSom(naqdSavdo)}</p>
+            <p className="text-base font-bold text-emerald-900">{fmtSom(cashIncome)}</p>
           </div>
           <div className={`border rounded-lg p-3 ${totalCashless > 0 ? 'bg-violet-50 border-violet-200' : 'bg-stone-50 border-stone-200'}`}>
             <div className="flex items-center gap-1.5 mb-1">
@@ -1017,21 +1236,21 @@ function CashRegisterCard({ date, cashRegister, totalIncome, totalCashless, onSa
           </div>
         </div>
 
-        {/* Hisob-kitob ma'lumoti */}
+        {/* Hisob-kitob — naqd kirim, naqd chiqim, qoldiq */}
         <div className="bg-stone-50 rounded-lg p-3 text-xs space-y-1.5">
           <div className="flex justify-between">
-            <span className="text-slate-600">Bugungi jami savdo:</span>
-            <span className="font-semibold text-slate-900">{fmtSom(totalIncome)}</span>
+            <span className="text-slate-600">Naqd savdo (+):</span>
+            <span className="font-semibold text-emerald-700">+{fmt(cashIncome)}</span>
           </div>
-          {totalCashless > 0 && (
+          {cashExpense > 0 && (
             <div className="flex justify-between">
-              <span className="text-violet-700">− Plastik:</span>
-              <span className="font-semibold text-violet-700">{fmtSom(totalCashless)}</span>
+              <span className="text-slate-600">Naqd chiqimlar (oylik, mahsulot, va h.k.):</span>
+              <span className="font-semibold text-rose-700">−{fmt(cashExpense)}</span>
             </div>
           )}
           <div className="flex justify-between pt-1.5 border-t border-stone-200">
-            <span className="font-semibold text-emerald-900">Kassada bo'lishi kerak:</span>
-            <span className="font-bold text-emerald-900">{fmtSom(naqdSavdo)}</span>
+            <span className="font-semibold text-amber-900">Kassada bo'lishi kerak:</span>
+            <span className="font-bold text-amber-900">{fmtSom(expectedCash)}</span>
           </div>
         </div>
 
@@ -1039,9 +1258,9 @@ function CashRegisterCard({ date, cashRegister, totalIncome, totalCashless, onSa
           <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
             Kassada bugun yig'ilgan naqd pul
           </span>
-          <input type="number" inputMode="numeric" value={countedCash}
+          <input type="text" inputMode="decimal" value={countedCash}
             onChange={(e) => { setCountedCash(e.target.value); setDirty(true); }}
-            placeholder="Sanab kiriting"
+            placeholder="230000 yoki 230k"
             onKeyDown={(e) => { if (e.key === "Enter" && dirty) save(); }}
             className="w-full mt-1 px-3 py-2.5 border border-stone-300 rounded-lg text-base font-bold focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 outline-none" />
         </label>
@@ -1345,23 +1564,27 @@ function QuickAddForm({ category, expenseCat, onSubmit, variant = 'income', work
   // Income paymentMethod toggle: hide for commission and auto-from-drinks (always cash)
   const showPaymentToggle = variant === 'income' && !isCommission && !category?.autoFromDrinks;
 
-  const computedAmount = isPerUnit && qty ? Number(qty) * Number(category.unitPrice || 0) : null;
-  const commissionShare = isCommission && amount ? Number(amount) * (Number(category.commissionPercent) || 0) / 100 : null;
+  const computedAmount = isPerUnit && qty
+    ? Math.max(0, parseAmount(qty) - (qtyEaten ? parseAmount(qtyEaten) : 0)) * Number(category.unitPrice || 0)
+    : null;
+  const commissionShare = isCommission && amount ? parseAmount(amount) * (Number(category.commissionPercent) || 0) / 100 : null;
 
   function submit() {
     if (isPerUnit) {
-      const q = Number(qty);
+      const q = parseAmount(qty);
       if (!q || q <= 0) return;
+      const eaten = qtyEaten ? parseAmount(qtyEaten) : 0;
+      const soldQty = Math.max(0, q - eaten); // FIX: ishchi yegan ayriladi
       const data = {
-        amount: q * Number(category.unitPrice || 0),
+        amount: soldQty * Number(category.unitPrice || 0),
         qty: q,
-        qtyEaten: qtyEaten ? Number(qtyEaten) : 0,
+        qtyEaten: eaten,
         note,
       };
       if (showPaymentToggle && paymentMethod === 'card') data.paymentMethod = 'card';
       onSubmit(data);
     } else {
-      const num = Number(amount);
+      const num = parseAmount(amount);
       if (!num || num <= 0) return;
       const data = { amount: num, note };
       if (showPaymentToggle && paymentMethod === 'card') data.paymentMethod = 'card';
@@ -1404,21 +1627,25 @@ function QuickAddForm({ category, expenseCat, onSubmit, variant = 'income', work
       {isPerUnit ? (
         <>
           <label className="block">
-            <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">Sotilgan dona soni</span>
-            <input type="number" inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0"
+            <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">Umumiy dona soni</span>
+            <input type="text" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0"
             onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
               className="w-full mt-1 px-3 py-2.5 border border-stone-300 rounded-lg text-base font-semibold focus:border-emerald-600 outline-none" />
           </label>
           {trackEaten && (
             <label className="block">
               <span className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">Ishchilar yedi (dona, ixtiyoriy)</span>
-              <input type="number" inputMode="numeric" value={qtyEaten} onChange={(e) => setQtyEaten(e.target.value)} placeholder="0"
+              <input type="text" inputMode="decimal" value={qtyEaten} onChange={(e) => setQtyEaten(e.target.value)} placeholder="0"
                 className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-amber-600 outline-none" />
             </label>
           )}
           {computedAmount !== null && qty && (
             <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-xs">
-              <span className="text-emerald-800">Tushum: {qty} × {fmt(category.unitPrice)} = <strong className="text-emerald-900">{fmtSom(computedAmount)}</strong></span>
+              {qtyEaten && parseAmount(qtyEaten) > 0 ? (
+                <span className="text-emerald-800">Sotildi: {qty} − {qtyEaten} = <strong>{Math.max(0, parseAmount(qty) - parseAmount(qtyEaten))} dona</strong> • Tushum: <strong className="text-emerald-900">{fmtSom(computedAmount)}</strong></span>
+              ) : (
+                <span className="text-emerald-800">Tushum: {qty} × {fmt(category.unitPrice)} = <strong className="text-emerald-900">{fmtSom(computedAmount)}</strong></span>
+              )}
             </div>
           )}
         </>
@@ -1428,7 +1655,7 @@ function QuickAddForm({ category, expenseCat, onSubmit, variant = 'income', work
             <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
               {isCommission ? "Umumiy sotuv summasi (so'm)" : "Summa (so'm)"}
             </span>
-            <input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0"
+            <input type="text" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0"
             onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
               className="w-full mt-1 px-3 py-2.5 border border-stone-300 rounded-lg text-base font-semibold focus:border-emerald-600 outline-none" />
           </label>
@@ -1495,7 +1722,7 @@ function QuickAddForm({ category, expenseCat, onSubmit, variant = 'income', work
           onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
           className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-emerald-600 outline-none" />
       </label>
-      <button onClick={submit} disabled={isPerUnit ? !qty || Number(qty) <= 0 : !amount || Number(amount) <= 0}
+      <button onClick={submit} disabled={isPerUnit ? !qty || parseAmount(qty) <= 0 : !amount || parseAmount(amount) <= 0}
         className={`w-full ${accentBtn} disabled:bg-stone-300 text-white font-semibold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2`}>
         <Save className="w-4 h-4" />Saqlash
       </button>
@@ -1570,7 +1797,7 @@ function WorkerSalaryPanel({ cat, date, workers, catTxs, onAdd, onDelete }) {
   const dirtyWorkers = useMemo(() => {
     return workers.filter(w => {
       const current = todayByWorker[w.id] || 0;
-      const input = Number(amounts[w.id] || 0);
+      const input = parseAmount(amounts[w.id] || 0);
       return input !== current;
     });
   }, [workers, amounts, todayByWorker]);
@@ -1582,7 +1809,7 @@ function WorkerSalaryPanel({ cat, date, workers, catTxs, onAdd, onDelete }) {
     // Loop davomida state o'zgarmasligi uchun snapshot olamiz
     const snapshot = dirtyWorkers.map(w => ({
       worker: w,
-      newAmount: Number(amounts[w.id] || 0),
+      newAmount: parseAmount(amounts[w.id] || 0),
       oldTxIds: catTxs.filter(t => t.payeeWorkerId === w.id).map(t => t.id).filter(Boolean),
     }));
     setSaving(true);
@@ -1608,7 +1835,7 @@ function WorkerSalaryPanel({ cat, date, workers, catTxs, onAdd, onDelete }) {
   }
 
   function saveOther() {
-    const a = Number(otherAmount);
+    const a = parseAmount(otherAmount);
     if (!a || a <= 0 || !otherName.trim()) return;
     onAdd({ amount: a, payee: otherName.trim() });
     setOtherName(''); setOtherAmount(''); setShowOther(false);
@@ -1654,7 +1881,7 @@ function WorkerSalaryPanel({ cat, date, workers, catTxs, onAdd, onDelete }) {
                 <p className="text-sm font-semibold text-slate-900 truncate">{w.name}</p>
                 {todayPaid > 0 && <p className="text-[10px] text-emerald-700">Bugun: {fmtSom(todayPaid)}</p>}
               </div>
-              <input type="number" inputMode="numeric" value={inputVal}
+              <input type="text" inputMode="decimal" value={inputVal}
                 onChange={(e) => setAmounts(prev => ({ ...prev, [w.id]: e.target.value }))}
                 onKeyDown={(e) => { if (e.key === 'Enter') saveAll(); }}
                 placeholder="0"
@@ -1687,12 +1914,12 @@ function WorkerSalaryPanel({ cat, date, workers, catTxs, onAdd, onDelete }) {
               onKeyDown={(e) => { if (e.key === 'Enter') saveOther(); }}
               placeholder="Ism familiya" autoFocus
               className="w-full px-2 py-2 border border-stone-300 rounded-lg text-sm focus:border-amber-600 outline-none" />
-            <input type="number" inputMode="numeric" value={otherAmount} onChange={(e) => setOtherAmount(e.target.value)}
+            <input type="text" inputMode="decimal" value={otherAmount} onChange={(e) => setOtherAmount(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') saveOther(); }}
               placeholder="Summa"
               className="w-full px-2 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-amber-600 outline-none" />
             <button onClick={saveOther}
-              disabled={!otherName.trim() || !otherAmount || Number(otherAmount) <= 0}
+              disabled={!otherName.trim() || !otherAmount || parseAmount(otherAmount) <= 0}
               className="w-full bg-amber-600 hover:bg-amber-700 disabled:bg-stone-300 text-white font-semibold py-2 rounded-lg text-sm flex items-center justify-center gap-1.5">
               <Save className="w-3.5 h-3.5" />Qo'shish
             </button>
@@ -1830,15 +2057,15 @@ function DrinkDayCard({ drink, start, added, end, date, onSave }) {
     setDirty(false);
   }, [drink.id, date]);
 
-  const localSold = endVal !== '' ? Math.max(0, Number(startVal || 0) + Number(addedVal || 0) - Number(endVal)) : 0;
+  const localSold = endVal !== '' ? Math.max(0, parseAmount(startVal || 0) + parseAmount(addedVal || 0) - parseAmount(endVal)) : 0;
   const localRevenue = localSold * Number(drink.salePrice || 0);
   const localProfit = localSold * (Number(drink.salePrice || 0) - Number(drink.purchasePrice || 0));
 
   function save() {
     onSave({
-      startStock: Number(startVal || 0),
-      added: Number(addedVal || 0),
-      endStock: endVal === '' ? null : Number(endVal),
+      startStock: parseAmount(startVal || 0),
+      added: parseAmount(addedVal || 0),
+      endStock: endVal === '' ? null : parseAmount(endVal),
     });
     setDirty(false);
   }
@@ -1852,19 +2079,19 @@ function DrinkDayCard({ drink, start, added, end, date, onSave }) {
       <div className="grid grid-cols-3 gap-2">
         <label className="block">
           <span className="text-[10px] font-semibold text-slate-500 uppercase">Boshlang'ich</span>
-          <input type="number" inputMode="numeric" value={startVal} onChange={(e) => { setStartVal(e.target.value); setDirty(true); }}
+          <input type="text" inputMode="decimal" value={startVal} onChange={(e) => { setStartVal(e.target.value); setDirty(true); }}
             onKeyDown={(e) => { if (e.key === "Enter" && dirty) save(); }}
             className="w-full mt-1 px-2 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
         </label>
         <label className="block">
           <span className="text-[10px] font-semibold text-slate-500 uppercase">Qo'shildi</span>
-          <input type="number" inputMode="numeric" value={addedVal} onChange={(e) => { setAddedVal(e.target.value); setDirty(true); }}
+          <input type="text" inputMode="decimal" value={addedVal} onChange={(e) => { setAddedVal(e.target.value); setDirty(true); }}
             onKeyDown={(e) => { if (e.key === "Enter" && dirty) save(); }}
             className="w-full mt-1 px-2 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
         </label>
         <label className="block">
           <span className="text-[10px] font-semibold text-slate-500 uppercase">Qoldi</span>
-          <input type="number" inputMode="numeric" value={endVal} onChange={(e) => { setEndVal(e.target.value); setDirty(true); }} placeholder="—"
+          <input type="text" inputMode="decimal" value={endVal} onChange={(e) => { setEndVal(e.target.value); setDirty(true); }} placeholder="—"
             onKeyDown={(e) => { if (e.key === "Enter" && dirty) save(); }}
             className="w-full mt-1 px-2 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
         </label>
@@ -1892,9 +2119,9 @@ function DrinkForm({ initial, onSubmit, onCancel }) {
 
   function submit() {
     if (!name.trim() || !purchasePrice || !salePrice) return;
-    onSubmit({ name: name.trim(), purchasePrice: Number(purchasePrice), salePrice: Number(salePrice) });
+    onSubmit({ name: name.trim(), purchasePrice: parseAmount(purchasePrice), salePrice: parseAmount(salePrice) });
   }
-  const profit = (Number(salePrice) || 0) - (Number(purchasePrice) || 0);
+  const profit = (parseAmount(salePrice) || 0) - (parseAmount(purchasePrice) || 0);
 
   return (
     <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-3">
@@ -1908,13 +2135,13 @@ function DrinkForm({ initial, onSubmit, onCancel }) {
       <div className="grid grid-cols-2 gap-2">
         <label className="block">
           <span className="text-[11px] font-semibold text-slate-600 uppercase">Tan narx</span>
-          <input type="number" inputMode="numeric" value={purchasePrice} onChange={(e) => setPurchasePrice(e.target.value)} placeholder="6000"
+          <input type="text" inputMode="decimal" value={purchasePrice} onChange={(e) => setPurchasePrice(e.target.value)} placeholder="6000"
             onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
             className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
         </label>
         <label className="block">
           <span className="text-[11px] font-semibold text-slate-600 uppercase">Sotuv narx</span>
-          <input type="number" inputMode="numeric" value={salePrice} onChange={(e) => setSalePrice(e.target.value)} placeholder="10000"
+          <input type="text" inputMode="decimal" value={salePrice} onChange={(e) => setSalePrice(e.target.value)} placeholder="10000"
             onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
             className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
         </label>
@@ -2122,15 +2349,15 @@ function DebtForm({ initial, defaultType, onSubmit, onCancel }) {
   const [note, setNote] = useState(initial?.note || '');
 
   function submit() {
-    if (!partyName.trim() || !amount || Number(amount) <= 0) return;
+    if (!partyName.trim() || !amount || parseAmount(amount) <= 0) return;
     const data = {
-      type, partyName: partyName.trim(), amount: Number(amount),
+      type, partyName: partyName.trim(), amount: parseAmount(amount),
       takenDate, dueDate: dueDate || null, note: note.trim(),
     };
     if (initial) {
-      data.remaining = Number(amount) === Number(initial.amount)
+      data.remaining = parseAmount(amount) === Number(initial.amount)
         ? initial.remaining
-        : Number(amount);
+        : parseAmount(amount);
     }
     onSubmit(data);
   }
@@ -2159,7 +2386,7 @@ function DebtForm({ initial, defaultType, onSubmit, onCancel }) {
 
       <label className="block">
         <span className="text-[11px] font-semibold text-slate-600 uppercase">Summa (so'm)</span>
-        <input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0"
+        <input type="text" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0"
             onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
           className="w-full mt-1 px-3 py-2.5 border border-stone-300 rounded-lg text-base font-semibold focus:border-emerald-600 outline-none" />
       </label>
@@ -2196,7 +2423,7 @@ function PaymentForm({ maxAmount, onSubmit, onCancel }) {
   const [amount, setAmount] = useState('');
 
   function submit() {
-    const a = Number(amount);
+    const a = parseAmount(amount);
     if (!a || a <= 0) return;
     onSubmit(Math.min(a, maxAmount));
   }
@@ -2205,13 +2432,13 @@ function PaymentForm({ maxAmount, onSubmit, onCancel }) {
   return (
     <div className="space-y-2">
       <p className="text-xs font-semibold text-slate-700">To'langan summa (qoldiq: {fmtSom(maxAmount)})</p>
-      <input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" autoFocus
+      <input type="text" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" autoFocus
         onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
         className="w-full px-3 py-2.5 border border-stone-300 rounded-lg text-base font-semibold focus:border-emerald-600 outline-none" />
       <div className="grid grid-cols-3 gap-2">
         <button onClick={onCancel} className="bg-stone-200 hover:bg-stone-300 text-slate-700 font-semibold py-2 rounded-lg text-xs">Bekor</button>
         <button onClick={fullPay} className="bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 rounded-lg text-xs">To'liq to'lov</button>
-        <button onClick={submit} disabled={!amount || Number(amount) <= 0}
+        <button onClick={submit} disabled={!amount || parseAmount(amount) <= 0}
           className="bg-emerald-700 hover:bg-emerald-800 disabled:bg-stone-300 text-white font-semibold py-2 rounded-lg text-xs">Saqlash</button>
       </div>
     </div>
@@ -2310,12 +2537,29 @@ function ReportsTab({ categories, transactions, drinkDaily, drinks, cashRegister
       net: Math.round(dailyMap[d].income - dailyMap[d].expense),
     }));
 
+    // Hafta kunlari bo'yicha o'rtacha (#10)
+    const WEEKDAYS = ['Yakshanba', 'Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba'];
+    const weekdayBuckets = {}; // 0-6: { totalNet, count }
+    for (let i = 0; i < 7; i++) weekdayBuckets[i] = { totalIncome: 0, totalExpense: 0, count: 0 };
+    Object.keys(dailyMap).forEach(d => {
+      const dow = new Date(d).getDay();
+      weekdayBuckets[dow].totalIncome += dailyMap[d].income;
+      weekdayBuckets[dow].totalExpense += dailyMap[d].expense;
+      weekdayBuckets[dow].count += 1;
+    });
+    const weekdayStats = [1,2,3,4,5,6,0].map(dow => { // Du-Ya tartibi
+      const b = weekdayBuckets[dow];
+      const avgIncome = b.count > 0 ? b.totalIncome / b.count : 0;
+      const avgNet = b.count > 0 ? (b.totalIncome - b.totalExpense) / b.count : 0;
+      return { dow, name: WEEKDAYS[dow], count: b.count, avgIncome, avgNet };
+    });
+
     return {
       incByCat, expByCat, perUnit,
       totalIncome, totalExpense, totalCashless, cardIncome, cashlessExp,
       drinksRevenue, drinksProfit, drinksSold,
       net: totalIncome - totalExpense,
-      incomePieData, expensePieData, dailyChartData,
+      incomePieData, expensePieData, dailyChartData, weekdayStats,
     };
   }, [periodTxs, categories, drinkDaily, drinks, startStr, endStr]);
 
@@ -2517,6 +2761,11 @@ function ReportsTab({ categories, transactions, drinkDaily, drinks, cashRegister
         </div>
       )}
 
+      {/* Hafta kunlari tahlili — eng yaxshi/yomon kunlar (#10) */}
+      {stats.weekdayStats && stats.weekdayStats.some(d => d.count > 0) && (
+        <WeekdayAnalysisCard weekdayStats={stats.weekdayStats} period={period} />
+      )}
+
       {/* Qarzlar bo'limi (Hisobotga ko'chirildi #3) */}
       <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
         <button onClick={() => setShowDebts(!showDebts)}
@@ -2538,6 +2787,80 @@ function ReportsTab({ categories, transactions, drinkDaily, drinks, cashRegister
               onAdd={onAddDebt} onUpdate={onUpdateDebt} onDelete={onDeleteDebt} onPayment={onPayDebt} />
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// WEEKDAY ANALYSIS CARD — eng yaxshi/yomon kunlar (#10)
+// ============================================================
+function WeekdayAnalysisCard({ weekdayStats, period }) {
+  const valid = weekdayStats.filter(d => d.count > 0);
+  if (valid.length === 0) return null;
+
+  const sortedByNet = [...valid].sort((a, b) => b.avgNet - a.avgNet);
+  const best = sortedByNet[0];
+  const worst = sortedByNet[sortedByNet.length - 1];
+  const maxAbs = Math.max(...valid.map(d => Math.abs(d.avgNet)), 1);
+
+  return (
+    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+      <div className="bg-emerald-50 px-4 py-2.5 border-b border-stone-200 flex items-center gap-2">
+        <BarChart3 className="w-4 h-4 text-emerald-700" />
+        <h3 className="text-sm font-semibold text-emerald-900">
+          Hafta kunlari tahlili {period === 'month' ? '(oylik)' : '(yillik)'}
+        </h3>
+      </div>
+
+      {/* Eng yaxshi va eng yomon kunlar */}
+      {best && worst && best.dow !== worst.dow && (
+        <div className="grid grid-cols-2 gap-2 p-3 bg-stone-50 border-b border-stone-200">
+          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5">
+            <p className="text-[10px] font-bold text-emerald-700 uppercase">Eng yaxshi kun</p>
+            <p className="text-sm font-bold text-emerald-900 mt-0.5">{best.name}</p>
+            <p className="text-[11px] text-emerald-800">o'rtacha {fmtSom(best.avgNet)}</p>
+          </div>
+          <div className="bg-rose-50 border border-rose-200 rounded-lg p-2.5">
+            <p className="text-[10px] font-bold text-rose-700 uppercase">Eng yomon kun</p>
+            <p className="text-sm font-bold text-rose-900 mt-0.5">{worst.name}</p>
+            <p className="text-[11px] text-rose-800">o'rtacha {fmtSom(worst.avgNet)}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Har kun bo'yicha bar */}
+      <div className="p-3 space-y-1.5">
+        {weekdayStats.map(d => {
+          const pct = (Math.abs(d.avgNet) / maxAbs) * 100;
+          const positive = d.avgNet >= 0;
+          return (
+            <div key={d.dow} className="grid grid-cols-[60px_1fr_90px] items-center gap-2 text-xs">
+              <span className="text-slate-700 font-semibold">{d.name}</span>
+              <div className="bg-stone-100 rounded-full h-4 overflow-hidden flex">
+                {d.count > 0 && (
+                  <div className={`h-full ${positive ? 'bg-emerald-500' : 'bg-rose-500'}`}
+                    style={{ width: `${Math.max(pct, 2)}%` }} />
+                )}
+              </div>
+              <div className="text-right">
+                {d.count > 0 ? (
+                  <>
+                    <span className={`font-bold ${positive ? 'text-emerald-700' : 'text-rose-700'}`}>
+                      {positive ? '+' : ''}{fmt(d.avgNet)}
+                    </span>
+                    <span className="text-[9px] text-slate-400 block">{d.count} kun</span>
+                  </>
+                ) : (
+                  <span className="text-slate-300">—</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="px-3 pb-3 text-[10px] text-slate-400">
+        O'rtacha sof natija (tushum − chiqim) shu hafta kunidan
       </div>
     </div>
   );
@@ -2595,7 +2918,8 @@ function ChartsLoader({ children }) {
 // ============================================================
 // SETTINGS TAB
 // ============================================================
-function SettingsTab({ categories, workers, transactions, workerByName, onAddCat, onUpdateCat, onDeleteCat, onAddWorker, onUpdateWorker, onDeleteWorker, tgConfig, onSaveTgConfig, onToast }) {
+function SettingsTab({ categories, workers, transactions, workerByName, onAddCat, onUpdateCat, onDeleteCat, onAddWorker, onUpdateWorker, onDeleteWorker, tgConfig, onSaveTgConfig, onToast,
+  drinks, drinkDaily, cashRegister, debts, onImportData }) {
   const [section, setSection] = useState('categories');
 
   return (
@@ -2605,18 +2929,22 @@ function SettingsTab({ categories, workers, transactions, workerByName, onAddCat
         <h2 className="text-lg font-semibold text-slate-900">Sozlamalar</h2>
       </div>
 
-      <div className="bg-white rounded-xl border border-stone-200 p-1 grid grid-cols-3 gap-1">
+      <div className="bg-white rounded-xl border border-stone-200 p-1 grid grid-cols-4 gap-1">
         <button onClick={() => setSection('categories')}
-          className={`py-2 rounded-lg text-xs font-semibold transition-colors ${section === 'categories' ? 'bg-emerald-700 text-white' : 'text-slate-600'}`}>
+          className={`py-2 rounded-lg text-[11px] font-semibold transition-colors ${section === 'categories' ? 'bg-emerald-700 text-white' : 'text-slate-600'}`}>
           Bo'limlar
         </button>
         <button onClick={() => setSection('workers')}
-          className={`py-2 rounded-lg text-xs font-semibold transition-colors ${section === 'workers' ? 'bg-emerald-700 text-white' : 'text-slate-600'}`}>
+          className={`py-2 rounded-lg text-[11px] font-semibold transition-colors ${section === 'workers' ? 'bg-emerald-700 text-white' : 'text-slate-600'}`}>
           Ishchilar
         </button>
         <button onClick={() => setSection('telegram')}
-          className={`py-2 rounded-lg text-xs font-semibold transition-colors ${section === 'telegram' ? 'bg-emerald-700 text-white' : 'text-slate-600'}`}>
-          Telegram bot
+          className={`py-2 rounded-lg text-[11px] font-semibold transition-colors ${section === 'telegram' ? 'bg-emerald-700 text-white' : 'text-slate-600'}`}>
+          Telegram
+        </button>
+        <button onClick={() => setSection('backup')}
+          className={`py-2 rounded-lg text-[11px] font-semibold transition-colors ${section === 'backup' ? 'bg-emerald-700 text-white' : 'text-slate-600'}`}>
+          Backup
         </button>
       </div>
 
@@ -2630,7 +2958,139 @@ function SettingsTab({ categories, workers, transactions, workerByName, onAddCat
       {section === 'telegram' && (
         <TelegramSection config={tgConfig} onSave={onSaveTgConfig} onToast={onToast} />
       )}
+      {section === 'backup' && (
+        <BackupSection
+          categories={categories} transactions={transactions} drinks={drinks} drinkDaily={drinkDaily}
+          cashRegister={cashRegister} debts={debts} workers={workers} tgConfig={tgConfig}
+          onImport={onImportData} onToast={onToast} />
+      )}
     </div>
+  );
+}
+
+// ============================================================
+// BACKUP SECTION (Phase 1)
+// ============================================================
+function BackupSection({ categories, transactions, drinks, drinkDaily, cashRegister, debts, workers, tgConfig, onImport, onToast }) {
+  const [importing, setImporting] = useState(false);
+  const [confirmRestore, setConfirmRestore] = useState(null);
+  const fileRef = useRef(null);
+
+  async function handleExportJSON() {
+    const { exportJSON } = await import('./backup.js');
+    exportJSON({ categories, transactions, drinks, drinkDaily, cashRegister, debts, workers, tgConfig });
+    onToast("Backup yuklab olindi");
+  }
+  async function handleExportCSV() {
+    const { exportTransactionsCSV } = await import('./backup.js');
+    exportTransactionsCSV({ categories, transactions, workers });
+    onToast("CSV yuklab olindi");
+  }
+  function handlePickImport() {
+    fileRef.current?.click();
+  }
+  async function handleFileSelected(e) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // reset
+    if (!file) return;
+    try {
+      const { importJSON } = await import('./backup.js');
+      const data = await importJSON(file);
+      setConfirmRestore(data);
+    } catch (err) {
+      onToast(`Xato: ${err.message}`, 'error');
+    }
+  }
+  async function applyRestore() {
+    if (!confirmRestore) return;
+    setImporting(true);
+    try {
+      await onImport(confirmRestore);
+      onToast("Backup tiklandi");
+      setConfirmRestore(null);
+    } catch (err) {
+      onToast(`Xato: ${err.message}`, 'error');
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  const txCount = transactions?.length || 0;
+  const workerCount = workers?.length || 0;
+  const drinkCount = drinks?.length || 0;
+  const debtCount = debts?.length || 0;
+
+  return (
+    <>
+      <div className="bg-white rounded-xl border border-stone-200 p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <FileDown className="w-4 h-4 text-emerald-700" />
+          <p className="text-sm font-semibold text-slate-900">Ma'lumotlarni saqlash</p>
+        </div>
+        <p className="text-xs text-slate-500">
+          Hozirda: {txCount} tranzaksiya, {workerCount} ishchi, {drinkCount} suv, {debtCount} qarz
+        </p>
+
+        <button onClick={handleExportJSON}
+          className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm">
+          <FileDown className="w-4 h-4" />JSON backup yuklash (to'liq)
+        </button>
+        <p className="text-[11px] text-slate-500 -mt-1">Hamma narsa — bo'limlar, tranzaksiyalar, ishchilar, qarzlar, sozlamalar. Keyin shu fayl bilan tiklash mumkin.</p>
+
+        <button onClick={handleExportCSV}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm">
+          <FileDown className="w-4 h-4" />Tranzaksiyalarni Excel/CSV ga
+        </button>
+        <p className="text-[11px] text-slate-500 -mt-1">Excel'da ochib ko'rishingiz va buxgalterga yuborishingiz uchun.</p>
+      </div>
+
+      <div className="bg-white rounded-xl border border-stone-200 p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <RefreshCw className="w-4 h-4 text-amber-700" />
+          <p className="text-sm font-semibold text-slate-900">Backup'dan tiklash</p>
+        </div>
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-[11px] text-amber-900 flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <span>Diqqat: tiklash hozirgi barcha ma'lumotlaringizni almashtiradi. Avval hozirgi holatni JSON backup qilib oling.</span>
+        </div>
+        <input ref={fileRef} type="file" accept=".json" onChange={handleFileSelected} className="hidden" />
+        <button onClick={handlePickImport}
+          className="w-full bg-stone-100 hover:bg-stone-200 text-slate-700 font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm border border-stone-300">
+          <RefreshCw className="w-4 h-4" />JSON faylni tanlash
+        </button>
+      </div>
+
+      {confirmRestore && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-rose-600" />
+              <p className="font-bold text-slate-900">Tiklashni tasdiqlang</p>
+            </div>
+            <p className="text-sm text-slate-700">
+              Bu tiklash <strong>hozirgi barcha</strong> ma'lumotlarni almashtiradi:
+            </p>
+            <div className="bg-stone-50 rounded-lg p-3 text-xs space-y-1">
+              <div>• {confirmRestore.transactions?.length || 0} tranzaksiya</div>
+              <div>• {confirmRestore.workers?.length || 0} ishchi</div>
+              <div>• {confirmRestore.drinks?.length || 0} suv</div>
+              <div>• {confirmRestore.debts?.length || 0} qarz</div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button onClick={() => setConfirmRestore(null)}
+                className="bg-stone-200 hover:bg-stone-300 text-slate-700 font-semibold py-2 rounded-lg text-sm">
+                Bekor
+              </button>
+              <button onClick={applyRestore} disabled={importing}
+                className="bg-rose-600 hover:bg-rose-700 disabled:bg-stone-300 text-white font-semibold py-2 rounded-lg text-sm flex items-center justify-center gap-1">
+                {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                Tiklash
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -2733,12 +3193,12 @@ function CategoryForm({ type, incomeCategories, initial, onSubmit, onCancel }) {
     if (type === 'income') {
       if (perUnit) {
         data.perUnit = true;
-        data.unitPrice = Number(unitPrice) || 0;
+        data.unitPrice = parseAmount(unitPrice) || 0;
         if (trackEaten) data.trackEaten = true;
       }
       if (hasCommission) {
         data.hasCommission = true;
-        data.commissionPercent = Number(commissionPercent) || 0;
+        data.commissionPercent = parseAmount(commissionPercent) || 0;
       }
       if (autoFromDrinks) data.autoFromDrinks = true;
     } else {
@@ -2779,7 +3239,7 @@ function CategoryForm({ type, incomeCategories, initial, onSubmit, onCancel }) {
             <>
               <label className="block ml-6">
                 <span className="text-[10px] font-semibold text-slate-600 uppercase">Bir dona narxi</span>
-                <input type="number" inputMode="numeric" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} placeholder="5000"
+                <input type="text" inputMode="decimal" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} placeholder="5000"
                   onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
                   className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
               </label>
@@ -2798,7 +3258,7 @@ function CategoryForm({ type, incomeCategories, initial, onSubmit, onCancel }) {
           {hasCommission && (
             <label className="block ml-6">
               <span className="text-[10px] font-semibold text-slate-600 uppercase">Ulush foizi (%)</span>
-              <input type="number" inputMode="numeric" value={commissionPercent} onChange={(e) => setCommissionPercent(e.target.value)} placeholder="24"
+              <input type="text" inputMode="decimal" value={commissionPercent} onChange={(e) => setCommissionPercent(e.target.value)} placeholder="24"
                 onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
                 className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
             </label>

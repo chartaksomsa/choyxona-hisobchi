@@ -1,24 +1,55 @@
-# Choyxona Hisobchi v4.2
+# Choyxona Hisobchi v4.3
 
 Mobil-birinchi cafe accounting PWA — React + Vite + Supabase + Tailwind.
 
-## v4.2 yangiliklari
+## v4.3 yangiliklari (Phase 1)
 
-1. **ENTER bilan saqlash** — Endi har qanday formada ENTER bossangiz, summa/yozuv saqlanadi. Saqlash tugmasini topib bosish shart emas.
+### Bug fix
+- **Somsa yegani daromaddan ayriladi** — agar 1000 dona umumiy va 30 ta ishchilar yegan bo'lsa, daromad 970 × narx (avval 1000 × narx hisoblar edi)
+- **Kassa balansi to'g'rilandi** — endi "Kassada bo'lishi kerak" = naqd savdo − naqd chiqim (oylik, mahsulot va h.k. ayriladi)
 
-2. **Ishchilar oyligi qayta ishlandi** — alohida bo'lim, Chiqim tabining eng yuqorisida:
-   - Hamma faol ishchilar avtomatik chiqib turadi
-   - Har birining yoniga summa yozasiz (allaqachon bugun to'lasangiz, summa avtomatik to'ldirilgan bo'ladi va tahrirlash mumkin)
-   - **Bitta** "Hammasini saqlash" tugmasi (har bir ishchiga alohida emas)
-   - Bo'limning eng pastida bugungi to'lovlar ixcham ro'yxati: vaqt, ism, summa, jami
+### Yangi funksiyalar
+- **"230k" → 230 000** avto-tushunish (lotin va kirill 'к', 'м' uchun ham)
+- **Raqamlar bo'shliq bilan**: "230 000" formatida
+- **Tendensiya** — Bosh sahifada bugun/hafta/oy o'tgan davr bilan solishtirish, foiz va o'q ko'rinishida
+- **Eng yaxshi/yomon kunlar** — Hisobotda hafta kunlari bo'yicha o'rtacha tahlil (haftalik va oylik tanlanadi)
+- **Backup va Eksport** — Sozlama → Backup tab:
+  - JSON backup (to'liq) yuklash
+  - Tranzaksiyalarni Excel/CSV ga eksport
+  - JSON backup'dan tiklash
+- **Undo o'chirishda** — tranzaksiyani o'chirsangiz, 5 sekund ichida "Bekor" tugmasi orqali tiklash mumkin
+
+## v4.2 dagilar
+- ENTER bilan saqlash
+- Ishchilar oyligi alohida bo'lim, bitta saqlash tugmasi
+- Createdat sort tuzatildi (oppoq ekran fix)
 
 ## v4.1 dagilar
+- Telegram batafsil hisobotlar (5 tur)
+- Ishchilar uchun ID/Kod
+- Qarzlar Hisobot tabiga ko'chirildi
+- Print 80mm chek
 
-1. Telegram batafsil hisobotlar (5 tur)
-2. Ishchilar uchun ID/Kod
-3. Qarzlar Hisobot tabiga ko'chirildi
-4. Print 80mm chek
-5. Ishchilar oyligi avto ro'yxat (asoslangan v4.2)
+## Phase 2 (kelgusi sessiyalar)
+- Dark mode (kunduzgi/tungi rejim birgalikda)
+- Telegram avto-jadval bo'yicha hisobot yuborish
+- Ob-havo bot — somsa kunlari uchun ogohlantirish
+- PWA push notification
+- Audit log (kim, qachon, nimani o'zgartirdi)
+- Sentry xato kuzatuvi
+- Avtomatlashtirilgan testlar
+- Surib o'chirish (swipe-to-delete)
+
+## Deploy
+
+GitHub Desktop orqali kodni yangilang. Vercel avtomatik build qiladi.
+
+### Xato yuzaga kelsa
+
+PWA agressiv kesh tufayli yangi versiya darhol ko'rinmasligi mumkin:
+- Brauzer: **Ctrl+Shift+R** (hard refresh)
+- PWA o'rnatilgan bo'lsa: o'chirib qayta o'rnating yoki cache tozalang
+
 
 ## v4.0 dagilar (avvalgi versiyadan)
 
