@@ -1,44 +1,30 @@
-# Choyxona Hisobchi v4.3
+# Choyxona Hisobchi v4.4
 
 Mobil-birinchi cafe accounting PWA — React + Vite + Supabase + Tailwind.
 
-## v4.3 yangiliklari (Phase 1)
+## v4.4 yangiliklari (Phase 2A)
 
-### Bug fix
-- **Somsa yegani daromaddan ayriladi** — agar 1000 dona umumiy va 30 ta ishchilar yegan bo'lsa, daromad 970 × narx (avval 1000 × narx hisoblar edi)
-- **Kassa balansi to'g'rilandi** — endi "Kassada bo'lishi kerak" = naqd savdo − naqd chiqim (oylik, mahsulot va h.k. ayriladi)
+- **Dark mode** — kunduzgi/tungi rejim. Header'da quyosh/oy tugmasi orqali almashtiriladi. Tanlovingiz brauzerda saqlanadi (qayta ochganda eslab qoladi).
+- **Surib o'chirish** — tx ro'yxatda chap-o'ngga sudrab o'chirish. Telefonda tezroq.
+- **Tarix (audit log)** — Sozlama → Tarix tabida hamma o'zgarishlar ko'rinadi: tushum, chiqim, ishchi, qarz, bo'lim qo'shildi/o'chirildi/yangilandi. Oxirgi 500 yozuv saqlanadi. Filtrlash mumkin (Tx, Bo'lim, Ishchi, Qarz).
 
-### Yangi funksiyalar
-- **"230k" → 230 000** avto-tushunish (lotin va kirill 'к', 'м' uchun ham)
-- **Raqamlar bo'shliq bilan**: "230 000" formatida
-- **Tendensiya** — Bosh sahifada bugun/hafta/oy o'tgan davr bilan solishtirish, foiz va o'q ko'rinishida
-- **Eng yaxshi/yomon kunlar** — Hisobotda hafta kunlari bo'yicha o'rtacha tahlil (haftalik va oylik tanlanadi)
-- **Backup va Eksport** — Sozlama → Backup tab:
-  - JSON backup (to'liq) yuklash
-  - Tranzaksiyalarni Excel/CSV ga eksport
-  - JSON backup'dan tiklash
-- **Undo o'chirishda** — tranzaksiyani o'chirsangiz, 5 sekund ichida "Bekor" tugmasi orqali tiklash mumkin
+## Phase 2 da qolganlar (alohida sessiyalar)
 
-## v4.2 dagilar
-- ENTER bilan saqlash
-- Ishchilar oyligi alohida bo'lim, bitta saqlash tugmasi
-- Createdat sort tuzatildi (oppoq ekran fix)
+- ⏳ Telegram avto-jadval bo'yicha hisobot — Cloudflare Worker yoki Supabase Edge Function infra kerak
+- ⏳ Ob-havo bot — somsa kunlari uchun ogohlantirish (OpenWeatherMap API + cron)
+- ⏳ PWA push notification — VAPID keys + backend
+- ⏳ Sentry — account ochish + DSN
+- ⏳ Avtomatlashtirilgan testlar
 
-## v4.1 dagilar
-- Telegram batafsil hisobotlar (5 tur)
-- Ishchilar uchun ID/Kod
-- Qarzlar Hisobot tabiga ko'chirildi
-- Print 80mm chek
-
-## Phase 2 (kelgusi sessiyalar)
-- Dark mode (kunduzgi/tungi rejim birgalikda)
-- Telegram avto-jadval bo'yicha hisobot yuborish
-- Ob-havo bot — somsa kunlari uchun ogohlantirish
-- PWA push notification
-- Audit log (kim, qachon, nimani o'zgartirdi)
-- Sentry xato kuzatuvi
-- Avtomatlashtirilgan testlar
-- Surib o'chirish (swipe-to-delete)
+## v4.3 dagilar (Phase 1)
+- Bug fix: somsa yegani daromaddan ayriladi
+- Bug fix: kassa balansi to'g'ri (naqd kirim − naqd chiqim)
+- "230k" → 230 000 avto-tushunish
+- Raqamlar bo'shliq bilan
+- Tendensiya kartasi (bugun/hafta/oy o'tgan davrga nisbatan)
+- Eng yaxshi/yomon kunlar tahlili
+- Backup va Eksport (JSON, CSV)
+- Undo o'chirishda
 
 ## Deploy
 

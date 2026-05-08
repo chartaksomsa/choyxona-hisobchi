@@ -7,8 +7,10 @@ import {
   Eye, EyeOff, Loader2, BookOpen, CheckCircle2, Users,
   HandCoins, FileDown, LogOut, UserCircle, Mail, Lock,
   Calendar as CalendarIcon, ArrowUpRight, ArrowDownLeft, Clock,
-  Wifi, WifiOff, RefreshCw, PieChart as PieChartIcon, Printer, Hash
+  Wifi, WifiOff, RefreshCw, PieChart as PieChartIcon, Printer, Hash,
+  Sun, Moon, Monitor
 } from "lucide-react";
+import { getStoredTheme, setStoredTheme } from './theme.js';
 import {
   useCloud, supabase, setUserId, loadAll, sGet, sSet,
   txInsert, txDelete,
@@ -154,8 +156,8 @@ export default function App() {
 
   if (!authChecked) {
     return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
-        <Coffee className="w-12 h-12 text-emerald-700 animate-pulse" />
+      <div className="min-h-screen bg-stone-50 dark:bg-slate-900 flex items-center justify-center">
+        <Coffee className="w-12 h-12 text-emerald-700 dark:text-emerald-300 animate-pulse" />
       </div>
     );
   }
@@ -207,58 +209,58 @@ function AuthScreen() {
           <p className="text-amber-200/70 text-sm mt-1">Kunlik kirim-chiqim ilovasi</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-2xl p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-1 bg-stone-100 rounded-lg p-1">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-1 bg-stone-100 dark:bg-slate-700 dark:bg-slate-800 rounded-lg p-1">
             <button onClick={() => { setMode('login'); setError(null); setInfo(null); }}
-              className={`py-2 rounded-md text-sm font-semibold transition-colors ${mode === 'login' ? 'bg-white text-emerald-900 shadow-sm' : 'text-slate-600'}`}>
+              className={`py-2 rounded-md text-sm font-semibold transition-colors ${mode === 'login' ? 'bg-white dark:bg-slate-800 text-emerald-900 dark:text-emerald-100 shadow-sm' : 'text-slate-600 dark:text-slate-400'}`}>
               Kirish
             </button>
             <button onClick={() => { setMode('signup'); setError(null); setInfo(null); }}
-              className={`py-2 rounded-md text-sm font-semibold transition-colors ${mode === 'signup' ? 'bg-white text-emerald-900 shadow-sm' : 'text-slate-600'}`}>
+              className={`py-2 rounded-md text-sm font-semibold transition-colors ${mode === 'signup' ? 'bg-white dark:bg-slate-800 text-emerald-900 dark:text-emerald-100 shadow-sm' : 'text-slate-600 dark:text-slate-400'}`}>
               Ro'yxatdan o'tish
             </button>
           </div>
 
           <label className="block">
-            <span className="text-xs font-semibold text-slate-600 uppercase">Email</span>
+            <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase">Email</span>
             <div className="relative mt-1">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
               <input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-10 pr-3 py-2.5 border border-stone-300 rounded-lg text-sm focus:border-emerald-600 outline-none"
+                className="w-full pl-10 pr-3 py-2.5 border border-stone-300 dark:border-slate-600 rounded-lg text-sm focus:border-emerald-600 outline-none"
                 placeholder="siz@example.com" />
             </div>
           </label>
 
           <label className="block">
-            <span className="text-xs font-semibold text-slate-600 uppercase">Parol</span>
+            <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase">Parol</span>
             <div className="relative mt-1">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
               <input type="password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                 value={password} onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && submit()}
-                className="w-full pl-10 pr-3 py-2.5 border border-stone-300 rounded-lg text-sm focus:border-emerald-600 outline-none"
+                className="w-full pl-10 pr-3 py-2.5 border border-stone-300 dark:border-slate-600 rounded-lg text-sm focus:border-emerald-600 outline-none"
                 placeholder="Kamida 6 belgi" />
             </div>
           </label>
 
           {error && (
-            <div className="bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 text-xs text-rose-900 flex gap-2">
+            <div className="bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800 rounded-lg px-3 py-2 text-xs text-rose-900 dark:text-rose-100 flex gap-2">
               <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" /><span>{error}</span>
             </div>
           )}
           {info && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-900 flex gap-2">
+            <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2 text-xs text-blue-900 dark:text-blue-100 flex gap-2">
               <Info className="w-4 h-4 flex-shrink-0 mt-0.5" /><span>{info}</span>
             </div>
           )}
 
           <button onClick={submit} disabled={loading}
-            className="w-full bg-emerald-700 hover:bg-emerald-800 disabled:bg-stone-300 text-white font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors">
+            className="w-full bg-emerald-700 hover:bg-emerald-800 disabled:bg-stone-300 dark:bg-slate-600 text-white font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors">
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
             {mode === 'login' ? "Kirish" : "Akkaunt yaratish"}
           </button>
 
-          <p className="text-[10px] text-center text-slate-400 leading-relaxed">
+          <p className="text-[10px] text-center text-slate-400 dark:text-slate-500 leading-relaxed">
             {mode === 'signup'
               ? <>Akkaunt yaratganingizdan keyin email manzilingizga<br/>tasdiqlash xati yuboriladi.</>
               : <>Birinchi marta foydalanyapsizmi?<br/>"Ro'yxatdan o'tish" ni tanlang.</>}
@@ -278,6 +280,21 @@ function ChoyxonaHisobchi({ userEmail }) {
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  // Dark mode — kunduzgi/tungi rejim, localStorage'da saqlanadi
+  const [theme, setTheme] = useState(() => {
+    try {
+      const saved = localStorage.getItem('choyxona_theme');
+      if (saved === 'dark' || saved === 'light') return saved;
+      // Tizim tanlovi
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    } catch (_) { return 'light'; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('choyxona_theme', theme); } catch (_) {}
+    const root = document.documentElement;
+    if (theme === 'dark') root.classList.add('dark');
+    else root.classList.remove('dark');
+  }, [theme]);
   const [toast, setToast] = useState(null);
   const [migrationOffer, setMigrationOffer] = useState(false);
 
@@ -293,6 +310,7 @@ function ChoyxonaHisobchi({ userEmail }) {
   const [tgConfig, setTgConfig] = useState({ botToken: '', recipients: [] });
   const [workers, setWorkers] = useState([]);
   const [debts, setDebts] = useState([]);
+  const [auditLog, setAuditLog] = useState([]); // O'zgarishlar tarixi
 
   useEffect(() => { initialize(); }, []);
 
@@ -351,6 +369,7 @@ function ChoyxonaHisobchi({ userEmail }) {
     setTgConfig(await sGet('tg_config', { botToken: '', recipients: [] }));
     setWorkers(await sGet('workers', []));
     setDebts(await sGet('debts', []));
+    setAuditLog(await sGet('audit_log', []));
   }
 
   async function initialize() {
@@ -388,12 +407,27 @@ function ChoyxonaHisobchi({ userEmail }) {
     setTimeout(() => setToast(null), action ? 5000 : 2400);
   }
 
+  // Audit log — har o'zgarishni yozib boradi (oxirgi 500 yozuv saqlanadi)
+  async function audit(action, details) {
+    const entry = {
+      id: genId(),
+      ts: Date.now(),
+      action,         // 'tx_add', 'tx_delete', 'worker_update', va h.k.
+      details,        // O'zgargan ma'lumot qisqa ko'rinishi
+      user: userEmail || 'local',
+    };
+    const updated = [entry, ...auditLog].slice(0, 500); // Eski yozuvlar tushib ketadi
+    setAuditLog(updated);
+    try { await sSet('audit_log', updated); } catch (_) {}
+  }
+
   // ============= CRUD =============
   async function addCategory(type, cat) {
     const newCat = { id: genId(), ...cat };
     const updated = { ...categories, [type]: [...categories[type], newCat] };
     setCategories(updated);
     await sSet('categories', updated);
+    audit('cat_add', `${type === 'income' ? 'Tushum' : 'Chiqim'} bo'limi: ${cat.name}`);
     showToast("Bo'lim qo'shildi");
   }
   async function updateCategory(type, id, updates) {
@@ -403,16 +437,19 @@ function ChoyxonaHisobchi({ userEmail }) {
     };
     setCategories(updated);
     await sSet('categories', updated);
+    audit('cat_update', `Bo'lim yangilandi: ${updates.name || id}`);
     showToast("Yangilandi");
   }
   async function deleteCategory(type, id) {
     if (!confirm("Rostan ham o'chirmoqchimisiz?")) return;
+    const before = categories[type].find(c => c.id === id);
     const updated = {
       ...categories,
       [type]: categories[type].filter(c => c.id !== id)
     };
     setCategories(updated);
     await sSet('categories', updated);
+    audit('cat_delete', `Bo'lim o'chirildi: ${before?.name || id}`);
     showToast("O'chirildi");
   }
 
@@ -421,6 +458,11 @@ function ChoyxonaHisobchi({ userEmail }) {
     const newTx = { id: genId(), createdAt: Date.now(), ...tx };
     setTransactions(prev => [...prev, newTx]);
     await txInsert(newTx);
+    const cat = tx.type === 'income'
+      ? categories.income.find(c => c.id === tx.categoryId)
+      : categories.expense.find(c => c.id === tx.categoryId);
+    audit(tx.type === 'income' ? 'tx_income_add' : 'tx_expense_add',
+      `${cat?.name || '—'}: ${fmt(tx.amount)} so'm${tx.payee ? ` (${tx.payee})` : ''}`);
     showToast("Saqlandi");
   }
   async function deleteTransaction(id) {
@@ -429,11 +471,16 @@ function ChoyxonaHisobchi({ userEmail }) {
     setTransactions(prev => prev.filter(t => t.id !== id));
     await txDelete(id);
     if (removed) {
+      const cat = removed.type === 'income'
+        ? categories.income.find(c => c.id === removed.categoryId)
+        : categories.expense.find(c => c.id === removed.categoryId);
+      audit('tx_delete', `${cat?.name || '—'}: ${fmt(removed.amount)} so'm o'chirildi`);
       showToast("O'chirildi", 'success', {
         label: 'Bekor',
         onClick: async () => {
           setTransactions(prev => [...prev, removed]);
           try { await txInsert(removed); } catch (_) {}
+          audit('tx_undo_delete', `Tiklandi: ${cat?.name || '—'} ${fmt(removed.amount)}`);
           showToast("Tiklandi");
         }
       });
@@ -509,19 +556,24 @@ function ChoyxonaHisobchi({ userEmail }) {
     const updated = [...workers, newW];
     setWorkers(updated);
     await sSet('workers', updated);
+    audit('worker_add', `Ishchi: ${w.name}`);
     showToast("Ishchi qo'shildi");
   }
   async function updateWorker(id, updates) {
+    const before = workers.find(w => w.id === id);
     const updated = workers.map(w => w.id === id ? { ...w, ...updates } : w);
     setWorkers(updated);
     await sSet('workers', updated);
+    audit('worker_update', `Ishchi yangilandi: ${updates.name || before?.name}`);
     showToast("Yangilandi");
   }
   async function deleteWorker(id) {
     if (!confirm("Ishchini o'chirmoqchimisiz? Bu uning oldingi tarixini ham o'chirmaydi.")) return;
+    const before = workers.find(w => w.id === id);
     const updated = workers.filter(w => w.id !== id);
     setWorkers(updated);
     await sSet('workers', updated);
+    audit('worker_delete', `Ishchi o'chirildi: ${before?.name || id}`);
     showToast("O'chirildi");
   }
 
@@ -530,6 +582,7 @@ function ChoyxonaHisobchi({ userEmail }) {
     const updated = [...debts, newD];
     setDebts(updated);
     await sSet('debts', updated);
+    audit('debt_add', `Qarz: ${d.partyName} ${fmt(d.amount)} so'm (${d.type === 'owed_to_us' ? 'bizga' : "biz qarzdormiz"})`);
     showToast("Qarz qo'shildi");
   }
   async function updateDebt(id, updates) {
@@ -540,21 +593,25 @@ function ChoyxonaHisobchi({ userEmail }) {
   }
   async function deleteDebt(id) {
     if (!confirm("O'chirmoqchimisiz?")) return;
+    const before = debts.find(d => d.id === id);
     const updated = debts.filter(d => d.id !== id);
     setDebts(updated);
     await sSet('debts', updated);
+    audit('debt_delete', `Qarz o'chirildi: ${before?.partyName || id}`);
     showToast("O'chirildi");
   }
   async function recordDebtPayment(id, amount) {
     const debt = debts.find(d => d.id === id);
     if (!debt) return;
-    const newRemaining = Math.max(0, Number(debt.remaining) - parseAmount(amount));
+    const paid = parseAmount(amount);
+    const newRemaining = Math.max(0, Number(debt.remaining) - paid);
     const updates = { remaining: newRemaining };
     if (newRemaining === 0) {
       updates.status = 'paid';
       updates.paidDate = todayStr();
     }
     await updateDebt(id, updates);
+    audit('debt_payment', `Qarz to'lovi: ${debt.partyName} ${fmt(paid)} so'm${newRemaining === 0 ? " (yopildi)" : ""}`);
   }
 
   function getPrevEndStock(date, drinkId) {
@@ -751,10 +808,10 @@ function ChoyxonaHisobchi({ userEmail }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
+      <div className="min-h-screen bg-stone-50 dark:bg-slate-900 flex items-center justify-center">
         <div className="text-center">
-          <Coffee className="w-12 h-12 mx-auto text-emerald-700 animate-pulse" />
-          <p className="mt-4 text-slate-600 font-medium">Yuklanmoqda...</p>
+          <Coffee className="w-12 h-12 mx-auto text-emerald-700 dark:text-emerald-300 animate-pulse" />
+          <p className="mt-4 text-slate-600 dark:text-slate-400 font-medium">Yuklanmoqda...</p>
         </div>
       </div>
     );
@@ -770,7 +827,7 @@ function ChoyxonaHisobchi({ userEmail }) {
         : { text: '☁️ Bulutda saqlanadi', cls: 'text-amber-200/70' };
 
   return (
-    <div className="min-h-screen bg-stone-50 pb-24" style={{ fontFamily: 'ui-sans-serif, system-ui, sans-serif' }}>
+    <div className="min-h-screen bg-stone-50 dark:bg-slate-900 pb-24" style={{ fontFamily: 'ui-sans-serif, system-ui, sans-serif' }}>
       {/* Header */}
       <header className="bg-emerald-900 text-amber-50 sticky top-0 z-30 shadow-md">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
@@ -788,6 +845,11 @@ function ChoyxonaHisobchi({ userEmail }) {
               className="flex items-center gap-1.5 bg-emerald-950 hover:bg-black/30 px-2.5 py-2 rounded-lg text-xs transition-colors">
               <Calendar className="w-4 h-4" />
               <span className="font-medium hidden xs:inline">{formatUzbDate(selectedDate)}</span>
+            </button>
+            <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="bg-emerald-950 hover:bg-black/30 p-2 rounded-lg transition-colors"
+              title={theme === 'dark' ? "Kunduzgi rejim" : "Tungi rejim"}>
+              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
             {useCloud && (
               <button onClick={() => setShowUserMenu(!showUserMenu)}
@@ -845,15 +907,15 @@ function ChoyxonaHisobchi({ userEmail }) {
       </header>
 
       {migrationOffer && (
-        <div className="bg-amber-100 border-b border-amber-200 px-4 py-3">
+        <div className="bg-amber-100 dark:bg-amber-900/50 border-b border-amber-200 dark:border-amber-800 px-4 py-3">
           <div className="max-w-4xl mx-auto flex items-center gap-3">
-            <Info className="w-5 h-5 text-amber-700 flex-shrink-0" />
+            <Info className="w-5 h-5 text-amber-700 dark:text-amber-300 flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-amber-900">Eski ma'lumotlar topildi</p>
-              <p className="text-xs text-amber-800">Telefoningizdagi ma'lumotlarni bulutga ko'chirasizmi?</p>
+              <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">Eski ma'lumotlar topildi</p>
+              <p className="text-xs text-amber-800 dark:text-amber-200">Telefoningizdagi ma'lumotlarni bulutga ko'chirasizmi?</p>
             </div>
             <button onClick={doMigration} className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-3 py-2 rounded-lg flex-shrink-0">Ko'chirish</button>
-            <button onClick={() => setMigrationOffer(false)} className="text-amber-700 p-2 flex-shrink-0"><X className="w-4 h-4" /></button>
+            <button onClick={() => setMigrationOffer(false)} className="text-amber-700 dark:text-amber-300 p-2 flex-shrink-0"><X className="w-4 h-4" /></button>
           </div>
         </div>
       )}
@@ -895,11 +957,11 @@ function ChoyxonaHisobchi({ userEmail }) {
             onAddWorker={addWorker} onUpdateWorker={updateWorker} onDeleteWorker={deleteWorker}
             tgConfig={tgConfig} onSaveTgConfig={saveTgConfig} onToast={showToast}
             drinks={drinks} drinkDaily={drinkDaily} cashRegister={cashRegister} debts={debts}
-            onImportData={importBackup} />
+            onImportData={importBackup} auditLog={auditLog} />
         )}
       </main>
 
-      <nav className="fixed bottom-0 inset-x-0 bg-white border-t border-stone-200 z-30" style={{ boxShadow: '0 -2px 12px rgba(0,0,0,0.06)' }}>
+      <nav className="fixed bottom-0 inset-x-0 bg-white dark:bg-slate-800 border-t border-stone-200 dark:border-slate-700 z-30" style={{ boxShadow: '0 -2px 12px rgba(0,0,0,0.06)' }}>
         <div className="max-w-4xl mx-auto grid grid-cols-6">
           {[
             { id: 'dashboard', icon: Home, label: 'Bosh' },
@@ -914,7 +976,7 @@ function ChoyxonaHisobchi({ userEmail }) {
             return (
               <button key={item.id} onClick={() => setActiveTab(item.id)}
                 className={`relative py-2.5 px-1 flex flex-col items-center gap-0.5 transition-colors ${
-                  isActive ? 'text-emerald-700' : 'text-slate-400 hover:text-slate-600'
+                  isActive ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:text-slate-400'
                 }`}>
                 <Icon style={{ width: '18px', height: '18px' }} className={isActive ? 'stroke-[2.5]' : ''} />
                 <span className="text-[9px] font-semibold">{item.label}</span>
@@ -952,7 +1014,7 @@ function DashboardTab({ date, categories, transactions, stats, drinkStats, cashR
   return (
     <div className="space-y-4">
       <div className="text-center py-1">
-        <p className="text-xs text-slate-500 uppercase tracking-wider">{formatUzbDateFull(date)}</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">{formatUzbDateFull(date)}</p>
       </div>
 
       <div className={`rounded-2xl p-5 shadow-sm ${
@@ -990,21 +1052,21 @@ function DashboardTab({ date, categories, transactions, stats, drinkStats, cashR
       {(debtsStats.owedToUs > 0 || debtsStats.weOwe > 0) && (
         <div className="grid grid-cols-2 gap-3">
           {debtsStats.owedToUs > 0 && (
-            <div className="bg-white rounded-xl p-3 border border-emerald-200">
+            <div className="bg-white dark:bg-slate-800 rounded-xl p-3 border border-emerald-200 dark:border-emerald-800">
               <div className="flex items-center gap-1.5 mb-1">
-                <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-700" />
-                <p className="text-[10px] text-emerald-900 font-semibold uppercase">Bizga qarzdor</p>
+                <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-300" />
+                <p className="text-[10px] text-emerald-900 dark:text-emerald-100 font-semibold uppercase">Bizga qarzdor</p>
               </div>
-              <p className="text-sm font-bold text-emerald-900">{fmtSom(debtsStats.owedToUs)}</p>
+              <p className="text-sm font-bold text-emerald-900 dark:text-emerald-100">{fmtSom(debtsStats.owedToUs)}</p>
             </div>
           )}
           {debtsStats.weOwe > 0 && (
-            <div className="bg-white rounded-xl p-3 border border-rose-200">
+            <div className="bg-white dark:bg-slate-800 rounded-xl p-3 border border-rose-200 dark:border-rose-800">
               <div className="flex items-center gap-1.5 mb-1">
-                <ArrowUpRight className="w-3.5 h-3.5 text-rose-700" />
-                <p className="text-[10px] text-rose-900 font-semibold uppercase">Biz qarzdormiz</p>
+                <ArrowUpRight className="w-3.5 h-3.5 text-rose-700 dark:text-rose-300" />
+                <p className="text-[10px] text-rose-900 dark:text-rose-100 font-semibold uppercase">Biz qarzdormiz</p>
               </div>
-              <p className="text-sm font-bold text-rose-900">{fmtSom(debtsStats.weOwe)}</p>
+              <p className="text-sm font-bold text-rose-900 dark:text-rose-100">{fmtSom(debtsStats.weOwe)}</p>
             </div>
           )}
         </div>
@@ -1017,14 +1079,14 @@ function DashboardTab({ date, categories, transactions, stats, drinkStats, cashR
           workers={workers} debts={debts} onToast={onToast} />
       )}
 
-      <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-        <div className="bg-emerald-50 px-4 py-2.5 border-b border-stone-200 flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-emerald-700" />
-          <h3 className="text-sm font-semibold text-emerald-900">Tushumlar</h3>
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
+        <div className="bg-emerald-50 dark:bg-emerald-900/30 px-4 py-2.5 border-b border-stone-200 dark:border-slate-700 flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-emerald-700 dark:text-emerald-300" />
+          <h3 className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">Tushumlar</h3>
         </div>
-        <div className="divide-y divide-stone-100">
+        <div className="divide-y divide-stone-100 dark:divide-slate-700 dark:divide-slate-800">
           {categories.income.length === 0 && (
-            <div className="p-4 text-center text-sm text-slate-400">Bo'limlar mavjud emas</div>
+            <div className="p-4 text-center text-sm text-slate-400 dark:text-slate-500">Bo'limlar mavjud emas</div>
           )}
           {categories.income.map(cat => {
             const amount = stats.incomeByCategory[cat.id] || 0;
@@ -1039,25 +1101,25 @@ function DashboardTab({ date, categories, transactions, stats, drinkStats, cashR
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                   <span className="text-xl">{cat.icon || '💰'}</span>
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">{cat.name}</p>
+                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{cat.name}</p>
                     {isShashlik && totalSales > 0 && (
-                      <p className="text-[11px] text-slate-500 mt-0.5">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                         Umumiy sotuv: {fmtSom(totalSales)} • {cat.commissionPercent}% ulush
                       </p>
                     )}
                     {unitInfo && (
-                      <p className="text-[11px] text-slate-500 mt-0.5">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                         {unitInfo.qtyEaten > 0
-                          ? <>Sotildi: <strong>{Math.max(0, unitInfo.qty - unitInfo.qtyEaten)}</strong> dona × {fmt(cat.unitPrice)} <span className="text-amber-700">(yedi: {unitInfo.qtyEaten})</span></>
+                          ? <>Sotildi: <strong>{Math.max(0, unitInfo.qty - unitInfo.qtyEaten)}</strong> dona × {fmt(cat.unitPrice)} <span className="text-amber-700 dark:text-amber-300">(yedi: {unitInfo.qtyEaten})</span></>
                           : <>{unitInfo.qty} dona × {fmt(cat.unitPrice)} so'm</>}
                       </p>
                     )}
                     {cat.autoFromDrinks && drinkStats.totalSold > 0 && (
-                      <p className="text-[11px] text-slate-500 mt-0.5">{drinkStats.totalSold} dona sotildi</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{drinkStats.totalSold} dona sotildi</p>
                     )}
                   </div>
                 </div>
-                <p className="text-sm font-bold text-emerald-700 whitespace-nowrap">
+                <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300 whitespace-nowrap">
                   {amount > 0 ? `+${fmtSom(amount)}` : '—'}
                 </p>
               </div>
@@ -1066,14 +1128,14 @@ function DashboardTab({ date, categories, transactions, stats, drinkStats, cashR
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-        <div className="bg-rose-50 px-4 py-2.5 border-b border-stone-200 flex items-center gap-2">
-          <TrendingDown className="w-4 h-4 text-rose-700" />
-          <h3 className="text-sm font-semibold text-rose-900">Chiqimlar</h3>
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
+        <div className="bg-rose-50 dark:bg-rose-900/30 px-4 py-2.5 border-b border-stone-200 dark:border-slate-700 flex items-center gap-2">
+          <TrendingDown className="w-4 h-4 text-rose-700 dark:text-rose-300" />
+          <h3 className="text-sm font-semibold text-rose-900 dark:text-rose-100">Chiqimlar</h3>
         </div>
-        <div className="divide-y divide-stone-100">
+        <div className="divide-y divide-stone-100 dark:divide-slate-700 dark:divide-slate-800">
           {Object.keys(stats.expenseByCategory).length === 0 && (
-            <div className="p-4 text-center text-sm text-slate-400">Bugun chiqim yo'q</div>
+            <div className="p-4 text-center text-sm text-slate-400 dark:text-slate-500">Bugun chiqim yo'q</div>
           )}
           {categories.expense
             .filter(c => stats.expenseByCategory[c.id])
@@ -1085,18 +1147,18 @@ function DashboardTab({ date, categories, transactions, stats, drinkStats, cashR
                 <div key={cat.id} className="px-4 py-3 flex items-center justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-slate-900 truncate">{cat.name}</p>
+                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{cat.name}</p>
                       {cat.isCashless && (
-                        <span className="text-[9px] bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded font-semibold flex-shrink-0">PLASTIK</span>
+                        <span className="text-[9px] bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded font-semibold flex-shrink-0">PLASTIK</span>
                       )}
                     </div>
                     {linkedCat && (
-                      <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1">
                         <Link2 className="w-3 h-3" />{linkedCat.name}
                       </p>
                     )}
                   </div>
-                  <p className="text-sm font-bold text-rose-700 whitespace-nowrap">−{fmtSom(amount)}</p>
+                  <p className="text-sm font-bold text-rose-700 dark:text-rose-300 whitespace-nowrap">−{fmtSom(amount)}</p>
                 </div>
               );
             })}
@@ -1104,23 +1166,23 @@ function DashboardTab({ date, categories, transactions, stats, drinkStats, cashR
       </div>
 
       {drinkStats.totalSold > 0 && (
-        <div className="bg-white rounded-xl border border-stone-200 p-4">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 p-4">
           <div className="flex items-center gap-2 mb-3">
-            <Package className="w-4 h-4 text-blue-700" />
-            <h3 className="text-sm font-semibold text-slate-900">Suvlar bo'yicha foyda</h3>
+            <Package className="w-4 h-4 text-blue-700 dark:text-blue-300" />
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Suvlar bo'yicha foyda</h3>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <div className="bg-blue-50 rounded-lg p-2.5">
-              <p className="text-[10px] text-blue-700 font-medium uppercase">Sotildi</p>
-              <p className="text-sm font-bold text-blue-900 mt-1">{drinkStats.totalSold} dona</p>
+            <div className="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-2.5">
+              <p className="text-[10px] text-blue-700 dark:text-blue-300 font-medium uppercase">Sotildi</p>
+              <p className="text-sm font-bold text-blue-900 dark:text-blue-100 mt-1">{drinkStats.totalSold} dona</p>
             </div>
-            <div className="bg-emerald-50 rounded-lg p-2.5">
-              <p className="text-[10px] text-emerald-700 font-medium uppercase">Tushum</p>
-              <p className="text-sm font-bold text-emerald-900 mt-1">{fmt(drinkStats.totalRevenue)}</p>
+            <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-lg p-2.5">
+              <p className="text-[10px] text-emerald-700 dark:text-emerald-300 font-medium uppercase">Tushum</p>
+              <p className="text-sm font-bold text-emerald-900 dark:text-emerald-100 mt-1">{fmt(drinkStats.totalRevenue)}</p>
             </div>
-            <div className="bg-amber-50 rounded-lg p-2.5">
-              <p className="text-[10px] text-amber-700 font-medium uppercase">Foyda</p>
-              <p className="text-sm font-bold text-amber-900 mt-1">{fmt(drinkStats.totalProfit)}</p>
+            <div className="bg-amber-50 dark:bg-amber-900/30 rounded-lg p-2.5">
+              <p className="text-[10px] text-amber-700 dark:text-amber-300 font-medium uppercase">Foyda</p>
+              <p className="text-sm font-bold text-amber-900 dark:text-amber-100 mt-1">{fmt(drinkStats.totalProfit)}</p>
             </div>
           </div>
         </div>
@@ -1146,12 +1208,12 @@ function TrendsCard({ trends }) {
   ];
 
   return (
-    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-      <div className="bg-blue-50 px-4 py-2.5 border-b border-stone-200 flex items-center gap-2">
-        <BarChart3 className="w-4 h-4 text-blue-700" />
-        <h3 className="text-sm font-semibold text-blue-900">Tendensiya</h3>
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
+      <div className="bg-blue-50 dark:bg-blue-900/30 px-4 py-2.5 border-b border-stone-200 dark:border-slate-700 flex items-center gap-2">
+        <BarChart3 className="w-4 h-4 text-blue-700 dark:text-blue-300" />
+        <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100">Tendensiya</h3>
       </div>
-      <div className="divide-y divide-stone-100">
+      <div className="divide-y divide-stone-100 dark:divide-slate-700 dark:divide-slate-800">
         {items.map(it => {
           const d = delta(it.current, it.prev);
           const positive = d.diff > 0;
@@ -1160,16 +1222,16 @@ function TrendsCard({ trends }) {
           return (
             <div key={it.key} className="px-4 py-2.5 flex items-center justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-slate-700">{it.title}</p>
-                <p className="text-[10px] text-slate-400 truncate">{it.label}: {fmtSom(it.prev)}</p>
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 dark:text-slate-600">{it.title}</p>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{it.label}: {fmtSom(it.prev)}</p>
               </div>
               <div className="text-right flex-shrink-0">
-                <p className={`text-sm font-bold ${it.current >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                <p className={`text-sm font-bold ${it.current >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'}`}>
                   {it.current >= 0 ? '+' : ''}{fmtSom(it.current)}
                 </p>
                 {!noData && (
                   <p className={`text-[10px] font-bold ${
-                    positive ? 'text-emerald-700' : negative ? 'text-rose-700' : 'text-slate-400'
+                    positive ? 'text-emerald-700 dark:text-emerald-300' : negative ? 'text-rose-700 dark:text-rose-300' : 'text-slate-400 dark:text-slate-500'
                   }`}>
                     {positive ? '↗' : negative ? '↘' : '→'} {d.pct === null ? `${d.diff >= 0 ? '+' : ''}${fmt(d.diff)}` : `${d.pct >= 0 ? '+' : ''}${d.pct.toFixed(0)}%`}
                   </p>
@@ -1212,76 +1274,76 @@ function CashRegisterCard({ date, cashRegister, totalIncome, totalCashless, cash
   }
 
   return (
-    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-      <div className="bg-amber-50 px-4 py-2.5 border-b border-stone-200 flex items-center gap-2">
-        <Wallet className="w-4 h-4 text-amber-700" />
-        <h3 className="text-sm font-semibold text-amber-900">Kunlik kassa balansi</h3>
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
+      <div className="bg-amber-50 dark:bg-amber-900/30 px-4 py-2.5 border-b border-stone-200 dark:border-slate-700 flex items-center gap-2">
+        <Wallet className="w-4 h-4 text-amber-700 dark:text-amber-300" />
+        <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-100">Kunlik kassa balansi</h3>
       </div>
       <div className="p-4 space-y-3">
         {/* Naqd va plastik tarkibi */}
         <div className="grid grid-cols-2 gap-2">
-          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+          <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3">
             <div className="flex items-center gap-1.5 mb-1">
-              <Banknote className="w-3.5 h-3.5 text-emerald-700" />
-              <p className="text-[10px] font-bold text-emerald-900 uppercase">Naqd savdo</p>
+              <Banknote className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-300" />
+              <p className="text-[10px] font-bold text-emerald-900 dark:text-emerald-100 uppercase">Naqd savdo</p>
             </div>
-            <p className="text-base font-bold text-emerald-900">{fmtSom(cashIncome)}</p>
+            <p className="text-base font-bold text-emerald-900 dark:text-emerald-100">{fmtSom(cashIncome)}</p>
           </div>
-          <div className={`border rounded-lg p-3 ${totalCashless > 0 ? 'bg-violet-50 border-violet-200' : 'bg-stone-50 border-stone-200'}`}>
+          <div className={`border rounded-lg p-3 ${totalCashless > 0 ? 'bg-violet-50 dark:bg-violet-900/30 border-violet-200 dark:border-violet-800' : 'bg-stone-50 dark:bg-slate-900 border-stone-200 dark:border-slate-700'}`}>
             <div className="flex items-center gap-1.5 mb-1">
-              <CreditCard className={`w-3.5 h-3.5 ${totalCashless > 0 ? 'text-violet-700' : 'text-slate-400'}`} />
-              <p className={`text-[10px] font-bold uppercase ${totalCashless > 0 ? 'text-violet-900' : 'text-slate-500'}`}>Plastik</p>
+              <CreditCard className={`w-3.5 h-3.5 ${totalCashless > 0 ? 'text-violet-700 dark:text-violet-300' : 'text-slate-400 dark:text-slate-500'}`} />
+              <p className={`text-[10px] font-bold uppercase ${totalCashless > 0 ? 'text-violet-900 dark:text-violet-100' : 'text-slate-500 dark:text-slate-400'}`}>Plastik</p>
             </div>
-            <p className={`text-base font-bold ${totalCashless > 0 ? 'text-violet-900' : 'text-slate-400'}`}>{fmtSom(totalCashless)}</p>
+            <p className={`text-base font-bold ${totalCashless > 0 ? 'text-violet-900 dark:text-violet-100' : 'text-slate-400 dark:text-slate-500'}`}>{fmtSom(totalCashless)}</p>
           </div>
         </div>
 
         {/* Hisob-kitob — naqd kirim, naqd chiqim, qoldiq */}
-        <div className="bg-stone-50 rounded-lg p-3 text-xs space-y-1.5">
+        <div className="bg-stone-50 dark:bg-slate-900 rounded-lg p-3 text-xs space-y-1.5">
           <div className="flex justify-between">
-            <span className="text-slate-600">Naqd savdo (+):</span>
-            <span className="font-semibold text-emerald-700">+{fmt(cashIncome)}</span>
+            <span className="text-slate-600 dark:text-slate-400">Naqd savdo (+):</span>
+            <span className="font-semibold text-emerald-700 dark:text-emerald-300">+{fmt(cashIncome)}</span>
           </div>
           {cashExpense > 0 && (
             <div className="flex justify-between">
-              <span className="text-slate-600">Naqd chiqimlar (oylik, mahsulot, va h.k.):</span>
-              <span className="font-semibold text-rose-700">−{fmt(cashExpense)}</span>
+              <span className="text-slate-600 dark:text-slate-400">Naqd chiqimlar (oylik, mahsulot, va h.k.):</span>
+              <span className="font-semibold text-rose-700 dark:text-rose-300">−{fmt(cashExpense)}</span>
             </div>
           )}
-          <div className="flex justify-between pt-1.5 border-t border-stone-200">
-            <span className="font-semibold text-amber-900">Kassada bo'lishi kerak:</span>
-            <span className="font-bold text-amber-900">{fmtSom(expectedCash)}</span>
+          <div className="flex justify-between pt-1.5 border-t border-stone-200 dark:border-slate-700">
+            <span className="font-semibold text-amber-900 dark:text-amber-100">Kassada bo'lishi kerak:</span>
+            <span className="font-bold text-amber-900 dark:text-amber-100">{fmtSom(expectedCash)}</span>
           </div>
         </div>
 
         <label className="block">
-          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+          <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
             Kassada bugun yig'ilgan naqd pul
           </span>
           <input type="text" inputMode="decimal" value={countedCash}
             onChange={(e) => { setCountedCash(e.target.value); setDirty(true); }}
             placeholder="230000 yoki 230k"
             onKeyDown={(e) => { if (e.key === "Enter" && dirty) save(); }}
-            className="w-full mt-1 px-3 py-2.5 border border-stone-300 rounded-lg text-base font-bold focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 outline-none" />
+            className="w-full mt-1 px-3 py-2.5 border border-stone-300 dark:border-slate-600 rounded-lg text-base font-bold focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 outline-none" />
         </label>
 
         {counted !== null && diff !== null && (
           <div className={`rounded-lg p-3 flex items-start gap-2 ${
-            diff === 0 ? 'bg-emerald-50 border border-emerald-200' :
-            Math.abs(diff) < 1000 ? 'bg-amber-50 border border-amber-200' :
-            'bg-rose-50 border border-rose-200'
+            diff === 0 ? 'bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800' :
+            Math.abs(diff) < 1000 ? 'bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800' :
+            'bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800'
           }`}>
-            {diff === 0 ? <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" /> :
-             <AlertTriangle className={`w-5 h-5 flex-shrink-0 ${Math.abs(diff) < 1000 ? 'text-amber-600' : 'text-rose-600'}`} />}
+            {diff === 0 ? <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" /> :
+             <AlertTriangle className={`w-5 h-5 flex-shrink-0 ${Math.abs(diff) < 1000 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`} />}
             <div className="text-xs flex-1">
               <p className={`font-bold ${
-                diff === 0 ? 'text-emerald-900' :
-                Math.abs(diff) < 1000 ? 'text-amber-900' : 'text-rose-900'
+                diff === 0 ? 'text-emerald-900 dark:text-emerald-100' :
+                Math.abs(diff) < 1000 ? 'text-amber-900 dark:text-amber-100' : 'text-rose-900 dark:text-rose-100'
               }`}>
                 {diff === 0 ? "✅ Mukammal balans!" : `Farq: ${diff > 0 ? '+' : ''}${fmtSom(diff)}`}
               </p>
               {diff !== 0 && (
-                <p className={`mt-1 ${Math.abs(diff) < 1000 ? 'text-amber-700' : 'text-rose-700'}`}>
+                <p className={`mt-1 ${Math.abs(diff) < 1000 ? 'text-amber-700 dark:text-amber-300' : 'text-rose-700 dark:text-rose-300'}`}>
                   {diff > 0 ? "Kassada savdoga qaraganda ortiqcha pul bor." : "Kassada savdoga qaraganda kam pul bor — sababini tekshiring."}
                 </p>
               )}
@@ -1336,22 +1398,22 @@ function TelegramQuickSend({ date, tgConfig, categories, transactions, stats, dr
   if (enabled.length === 0) return null;
 
   return (
-    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-      <div className="bg-blue-50 px-4 py-2.5 border-b border-stone-200 flex items-center gap-2">
-        <Send className="w-4 h-4 text-blue-700" />
-        <h3 className="text-sm font-semibold text-blue-900">Telegramga yuborish</h3>
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
+      <div className="bg-blue-50 dark:bg-blue-900/30 px-4 py-2.5 border-b border-stone-200 dark:border-slate-700 flex items-center gap-2">
+        <Send className="w-4 h-4 text-blue-700 dark:text-blue-300" />
+        <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100">Telegramga yuborish</h3>
       </div>
-      <div className="divide-y divide-stone-100">
+      <div className="divide-y divide-stone-100 dark:divide-slate-700 dark:divide-slate-800">
         {enabled.map(r => (
           <div key={r.id} className="px-4 py-3 flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-slate-900 truncate">{r.name}</p>
-              <p className="text-[11px] text-slate-500 mt-0.5">
+              <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{r.name}</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                 {REPORT_TYPE_LABELS[r.reportType] || r.reportType}
               </p>
             </div>
             <button onClick={() => send(r)} disabled={sending === r.id}
-              className="flex-shrink-0 bg-blue-600 hover:bg-blue-700 disabled:bg-stone-300 text-white text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5">
+              className="flex-shrink-0 bg-blue-600 hover:bg-blue-700 disabled:bg-stone-300 dark:bg-slate-600 text-white text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5">
               {sending === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
               Yuborish
             </button>
@@ -1371,13 +1433,13 @@ function IncomeTab({ date, categories, transactions, onAdd, onDelete }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 mb-2">
-        <TrendingUp className="w-5 h-5 text-emerald-700" />
-        <h2 className="text-lg font-semibold text-slate-900">Tushumlar kiritish</h2>
+        <TrendingUp className="w-5 h-5 text-emerald-700 dark:text-emerald-300" />
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Tushumlar kiritish</h2>
       </div>
-      <p className="text-xs text-slate-500 -mt-2">Sana: {formatUzbDateFull(date)}</p>
+      <p className="text-xs text-slate-500 dark:text-slate-400 -mt-2">Sana: {formatUzbDateFull(date)}</p>
 
       {categories.length === 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-900">
+        <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4 text-sm text-amber-900 dark:text-amber-100">
           Bo'limlar yo'q. <strong>Sozlama</strong> tabidan qo'shing.
         </div>
       )}
@@ -1393,32 +1455,32 @@ function IncomeTab({ date, categories, transactions, onAdd, onDelete }) {
         const cardCount = catTxs.filter(t => t.paymentMethod === 'card').length;
 
         return (
-          <div key={cat.id} className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+          <div key={cat.id} className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
             <button onClick={() => !isAuto && setOpenCat(isOpen ? null : cat.id)} disabled={isAuto}
-              className={`w-full px-4 py-3 flex items-center justify-between gap-3 ${isAuto ? '' : 'hover:bg-stone-50 active:bg-stone-100'} transition-colors`}>
+              className={`w-full px-4 py-3 flex items-center justify-between gap-3 ${isAuto ? '' : 'hover:bg-stone-50 dark:hover:bg-slate-800 dark:bg-slate-900 active:bg-stone-100 dark:active:bg-slate-700 dark:bg-slate-800'} transition-colors`}>
               <div className="flex items-center gap-3 min-w-0 flex-1 text-left">
                 <span className="text-2xl">{cat.icon || '💰'}</span>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-900 truncate">{cat.name}</p>
-                  {cat.hasCommission && <p className="text-[11px] text-amber-700 font-medium mt-0.5 flex items-center gap-1"><Percent className="w-3 h-3" />Ulush: {cat.commissionPercent}%</p>}
-                  {cat.perUnit && <p className="text-[11px] text-blue-700 font-medium mt-0.5">Bir dona: {fmt(cat.unitPrice)} so'm{totalQty > 0 && ` • Bugun: ${totalQty} dona`}{totalEaten > 0 && ` • Yedi: ${totalEaten}`}</p>}
-                  {isAuto && <p className="text-[11px] text-blue-700 font-medium mt-0.5 flex items-center gap-1"><Info className="w-3 h-3" />Avtomatik (Suvlar tabidan)</p>}
-                  {cardCount > 0 && <p className="text-[11px] text-violet-700 font-medium mt-0.5 flex items-center gap-1"><CreditCard className="w-3 h-3" />{cardCount} ta plastik</p>}
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{cat.name}</p>
+                  {cat.hasCommission && <p className="text-[11px] text-amber-700 dark:text-amber-300 font-medium mt-0.5 flex items-center gap-1"><Percent className="w-3 h-3" />Ulush: {cat.commissionPercent}%</p>}
+                  {cat.perUnit && <p className="text-[11px] text-blue-700 dark:text-blue-300 font-medium mt-0.5">Bir dona: {fmt(cat.unitPrice)} so'm{totalQty > 0 && ` • Bugun: ${totalQty} dona`}{totalEaten > 0 && ` • Yedi: ${totalEaten}`}</p>}
+                  {isAuto && <p className="text-[11px] text-blue-700 dark:text-blue-300 font-medium mt-0.5 flex items-center gap-1"><Info className="w-3 h-3" />Avtomatik (Suvlar tabidan)</p>}
+                  {cardCount > 0 && <p className="text-[11px] text-violet-700 dark:text-violet-300 font-medium mt-0.5 flex items-center gap-1"><CreditCard className="w-3 h-3" />{cardCount} ta plastik</p>}
                 </div>
               </div>
               <div className="text-right flex-shrink-0">
                 {cat.hasCommission ? (
-                  <><p className="text-[10px] text-slate-500">Sotuv: {fmt(totalAmount)}</p><p className="text-sm font-bold text-emerald-700">{fmtSom(realIncome)}</p></>
-                ) : (<p className="text-sm font-bold text-emerald-700">{fmtSom(totalAmount)}</p>)}
-                {!isAuto && (isOpen ? <ChevronUp className="w-4 h-4 text-slate-400 inline ml-1" /> : <ChevronDown className="w-4 h-4 text-slate-400 inline ml-1" />)}
+                  <><p className="text-[10px] text-slate-500 dark:text-slate-400">Sotuv: {fmt(totalAmount)}</p><p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">{fmtSom(realIncome)}</p></>
+                ) : (<p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">{fmtSom(totalAmount)}</p>)}
+                {!isAuto && (isOpen ? <ChevronUp className="w-4 h-4 text-slate-400 dark:text-slate-500 inline ml-1" /> : <ChevronDown className="w-4 h-4 text-slate-400 dark:text-slate-500 inline ml-1" />)}
               </div>
             </button>
             {isOpen && !isAuto && (
-              <div className="border-t border-stone-200 bg-stone-50 p-4">
+              <div className="border-t border-stone-200 dark:border-slate-700 bg-stone-50 dark:bg-slate-900 p-4">
                 <QuickAddForm category={cat} onSubmit={(data) => { onAdd({ type: 'income', categoryId: cat.id, ...data, date }); setOpenCat(null); }} />
                 {catTxs.length > 0 && (
                   <div className="mt-4 space-y-1.5">
-                    <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Bugungi yozuvlar</p>
+                    <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Bugungi yozuvlar</p>
                     {catTxs.map(tx => <TxRow key={tx.id} tx={tx} onDelete={onDelete} accent="emerald" />)}
                   </div>
                 )}
@@ -1451,10 +1513,10 @@ function ExpenseTab({ date, categories, workers, transactions, onAdd, onDelete, 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 mb-2">
-        <TrendingDown className="w-5 h-5 text-rose-700" />
-        <h2 className="text-lg font-semibold text-slate-900">Chiqimlar kiritish</h2>
+        <TrendingDown className="w-5 h-5 text-rose-700 dark:text-rose-300" />
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Chiqimlar kiritish</h2>
       </div>
-      <p className="text-xs text-slate-500 -mt-2">Sana: {formatUzbDateFull(date)}</p>
+      <p className="text-xs text-slate-500 dark:text-slate-400 -mt-2">Sana: {formatUzbDateFull(date)}</p>
 
       {/* Ishchilar oyligi paneli — alohida bo'lim, eng yuqorida */}
       {salaryCategories.map(cat => {
@@ -1469,27 +1531,27 @@ function ExpenseTab({ date, categories, workers, transactions, onAdd, onDelete, 
       })}
 
       <button onClick={() => setShowNewCatForm(!showNewCatForm)}
-        className="w-full bg-white border-2 border-dashed border-stone-300 hover:border-emerald-500 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
+        className="w-full bg-white dark:bg-slate-800 border-2 border-dashed border-stone-300 dark:border-slate-600 hover:border-emerald-500 hover:bg-emerald-50 dark:bg-emerald-900/30 text-slate-600 dark:text-slate-400 hover:text-emerald-700 dark:text-emerald-300 font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
         {showNewCatForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
         {showNewCatForm ? 'Bekor qilish' : "Yangi chiqim turi qo'shish"}
       </button>
 
       {showNewCatForm && (
-        <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
           <CategoryForm type="expense" incomeCategories={categories.income}
             onSubmit={(data) => { onAddCategory('expense', data); setShowNewCatForm(false); }}
             onCancel={() => setShowNewCatForm(false)} />
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-stone-200 p-2 flex flex-wrap gap-1.5">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 p-2 flex flex-wrap gap-1.5">
         <button onClick={() => setFilterIncomeId('all')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filterIncomeId === 'all' ? 'bg-emerald-700 text-white' : 'bg-stone-100 text-slate-700'}`}>
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filterIncomeId === 'all' ? 'bg-emerald-700 text-white' : 'bg-stone-100 dark:bg-slate-700 dark:bg-slate-800 text-slate-700 dark:text-slate-300 dark:text-slate-600'}`}>
           Hammasi
         </button>
         {categories.income.filter(c => !c.autoFromDrinks).map(c => (
           <button key={c.id} onClick={() => setFilterIncomeId(c.id)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filterIncomeId === c.id ? 'bg-emerald-700 text-white' : 'bg-stone-100 text-slate-700'}`}>
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filterIncomeId === c.id ? 'bg-emerald-700 text-white' : 'bg-stone-100 dark:bg-slate-700 dark:bg-slate-800 text-slate-700 dark:text-slate-300 dark:text-slate-600'}`}>
             {c.icon} {c.name.split(' ')[0]}
           </button>
         ))}
@@ -1502,33 +1564,33 @@ function ExpenseTab({ date, categories, workers, transactions, onAdd, onDelete, 
         const linkedCat = categories.income.find(c => c.id === cat.linkedTo);
 
         return (
-          <div key={cat.id} className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+          <div key={cat.id} className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
             <button onClick={() => setOpenCat(isOpen ? null : cat.id)}
-              className="w-full px-4 py-3 flex items-center justify-between gap-3 hover:bg-stone-50 active:bg-stone-100 transition-colors">
+              className="w-full px-4 py-3 flex items-center justify-between gap-3 hover:bg-stone-50 dark:hover:bg-slate-800 dark:bg-slate-900 active:bg-stone-100 dark:active:bg-slate-700 dark:bg-slate-800 transition-colors">
               <div className="flex items-center gap-3 min-w-0 flex-1 text-left">
-                <div className="w-10 h-10 bg-rose-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <TrendingDown className="w-4 h-4 text-rose-600" />
+                <div className="w-10 h-10 bg-rose-50 dark:bg-rose-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <TrendingDown className="w-4 h-4 text-rose-600 dark:text-rose-400" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-semibold text-slate-900 truncate">{cat.name}</p>
-                    {cat.isCashless && <span className="text-[9px] bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded font-bold">PLASTIK</span>}
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{cat.name}</p>
+                    {cat.isCashless && <span className="text-[9px] bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded font-bold">PLASTIK</span>}
                   </div>
-                  {linkedCat && <p className="text-[11px] text-slate-500 mt-0.5">{linkedCat.icon} {linkedCat.name}</p>}
+                  {linkedCat && <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{linkedCat.icon} {linkedCat.name}</p>}
                 </div>
               </div>
               <div className="text-right flex-shrink-0">
-                <p className="text-sm font-bold text-rose-700">{total > 0 ? fmtSom(total) : '—'}</p>
-                {isOpen ? <ChevronUp className="w-4 h-4 text-slate-400 inline ml-1" /> : <ChevronDown className="w-4 h-4 text-slate-400 inline ml-1" />}
+                <p className="text-sm font-bold text-rose-700 dark:text-rose-300">{total > 0 ? fmtSom(total) : '—'}</p>
+                {isOpen ? <ChevronUp className="w-4 h-4 text-slate-400 dark:text-slate-500 inline ml-1" /> : <ChevronDown className="w-4 h-4 text-slate-400 dark:text-slate-500 inline ml-1" />}
               </div>
             </button>
             {isOpen && (
-              <div className="border-t border-stone-200 bg-stone-50 p-4">
+              <div className="border-t border-stone-200 dark:border-slate-700 bg-stone-50 dark:bg-slate-900 p-4">
                 <QuickAddForm expenseCat={cat} variant="expense" workers={workers}
                   onSubmit={(data) => { onAdd({ type: 'expense', categoryId: cat.id, ...data, date }); setOpenCat(null); }} />
                 {catTxs.length > 0 && (
                   <div className="mt-4 space-y-1.5">
-                    <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Bugungi yozuvlar</p>
+                    <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Bugungi yozuvlar</p>
                     {catTxs.map(tx => <TxRow key={tx.id} tx={tx} onDelete={onDelete} accent="rose" />)}
                   </div>
                 )}
@@ -1627,24 +1689,24 @@ function QuickAddForm({ category, expenseCat, onSubmit, variant = 'income', work
       {isPerUnit ? (
         <>
           <label className="block">
-            <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">Umumiy dona soni</span>
+            <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Umumiy dona soni</span>
             <input type="text" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0"
             onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-              className="w-full mt-1 px-3 py-2.5 border border-stone-300 rounded-lg text-base font-semibold focus:border-emerald-600 outline-none" />
+              className="w-full mt-1 px-3 py-2.5 border border-stone-300 dark:border-slate-600 rounded-lg text-base font-semibold focus:border-emerald-600 outline-none" />
           </label>
           {trackEaten && (
             <label className="block">
-              <span className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">Ishchilar yedi (dona, ixtiyoriy)</span>
+              <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300 uppercase tracking-wider">Ishchilar yedi (dona, ixtiyoriy)</span>
               <input type="text" inputMode="decimal" value={qtyEaten} onChange={(e) => setQtyEaten(e.target.value)} placeholder="0"
-                className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-amber-600 outline-none" />
+                className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm font-semibold focus:border-amber-600 outline-none" />
             </label>
           )}
           {computedAmount !== null && qty && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-xs">
+            <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg px-3 py-2 text-xs">
               {qtyEaten && parseAmount(qtyEaten) > 0 ? (
-                <span className="text-emerald-800">Sotildi: {qty} − {qtyEaten} = <strong>{Math.max(0, parseAmount(qty) - parseAmount(qtyEaten))} dona</strong> • Tushum: <strong className="text-emerald-900">{fmtSom(computedAmount)}</strong></span>
+                <span className="text-emerald-800 dark:text-emerald-200">Sotildi: {qty} − {qtyEaten} = <strong>{Math.max(0, parseAmount(qty) - parseAmount(qtyEaten))} dona</strong> • Tushum: <strong className="text-emerald-900 dark:text-emerald-100">{fmtSom(computedAmount)}</strong></span>
               ) : (
-                <span className="text-emerald-800">Tushum: {qty} × {fmt(category.unitPrice)} = <strong className="text-emerald-900">{fmtSom(computedAmount)}</strong></span>
+                <span className="text-emerald-800 dark:text-emerald-200">Tushum: {qty} × {fmt(category.unitPrice)} = <strong className="text-emerald-900 dark:text-emerald-100">{fmtSom(computedAmount)}</strong></span>
               )}
             </div>
           )}
@@ -1652,25 +1714,25 @@ function QuickAddForm({ category, expenseCat, onSubmit, variant = 'income', work
       ) : (
         <>
           <label className="block">
-            <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+            <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
               {isCommission ? "Umumiy sotuv summasi (so'm)" : "Summa (so'm)"}
             </span>
             <input type="text" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0"
             onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-              className="w-full mt-1 px-3 py-2.5 border border-stone-300 rounded-lg text-base font-semibold focus:border-emerald-600 outline-none" />
+              className="w-full mt-1 px-3 py-2.5 border border-stone-300 dark:border-slate-600 rounded-lg text-base font-semibold focus:border-emerald-600 outline-none" />
           </label>
           {commissionShare !== null && amount && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs">
-              <span className="text-amber-800">Sizning ulushingiz ({category.commissionPercent}%): <strong className="text-amber-900">{fmtSom(commissionShare)}</strong></span>
+            <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2 text-xs">
+              <span className="text-amber-800 dark:text-amber-200">Sizning ulushingiz ({category.commissionPercent}%): <strong className="text-amber-900 dark:text-amber-100">{fmtSom(commissionShare)}</strong></span>
             </div>
           )}
           {trackPayee && (
             useWorkerSelect ? (
               <>
                 <label className="block">
-                  <span className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">Kim oldi?</span>
+                  <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300 uppercase tracking-wider">Kim oldi?</span>
                   <select value={payee} onChange={(e) => onWorkerSelect(e.target.value)}
-                    className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-amber-600 outline-none bg-white">
+                    className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm focus:border-amber-600 outline-none bg-white dark:bg-slate-800">
                     <option value="">— Tanlang —</option>
                     {activeWorkers.map(w => <option key={w.id} value={w.name}>{w.code ? `[${w.code}] ` : ''}{w.name}{w.position ? ` (${w.position})` : ''}</option>)}
                     <option value="__other__">Boshqa (qo'lda yozish)</option>
@@ -1679,16 +1741,16 @@ function QuickAddForm({ category, expenseCat, onSubmit, variant = 'income', work
                 {payee === '__other__' && (
                   <input type="text" value={customPayee} onChange={(e) => setCustomPayee(e.target.value)} placeholder="Ism familiya"
                     onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-                    className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-amber-600 outline-none" />
+                    className="w-full px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm focus:border-amber-600 outline-none" />
                 )}
               </>
             ) : (
               <label className="block">
-                <span className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">Kim oldi?</span>
+                <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300 uppercase tracking-wider">Kim oldi?</span>
                 <input type="text" value={payee} onChange={(e) => setPayee(e.target.value)} placeholder="Ism familiya"
                   onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-                  className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-amber-600 outline-none" />
-                <p className="text-[10px] text-slate-500 mt-1">Ishchilar ro'yxati Sozlama → Ishchilarda</p>
+                  className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm focus:border-amber-600 outline-none" />
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Ishchilar ro'yxati Sozlama → Ishchilarda</p>
               </label>
             )
           )}
@@ -1698,17 +1760,17 @@ function QuickAddForm({ category, expenseCat, onSubmit, variant = 'income', work
       {/* PaymentMethod toggle for income (#6) */}
       {showPaymentToggle && (
         <div>
-          <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider block mb-1.5">To'lov turi</span>
+          <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1.5">To'lov turi</span>
           <div className="grid grid-cols-2 gap-2">
             <button type="button" onClick={() => setPaymentMethod('cash')}
               className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold border-2 transition-colors ${
-                paymentMethod === 'cash' ? 'border-emerald-500 bg-emerald-50 text-emerald-900' : 'border-stone-200 bg-white text-slate-600'
+                paymentMethod === 'cash' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-900 dark:text-emerald-100' : 'border-stone-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400'
               }`}>
               <Banknote className="w-4 h-4" />Naqd
             </button>
             <button type="button" onClick={() => setPaymentMethod('card')}
               className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold border-2 transition-colors ${
-                paymentMethod === 'card' ? 'border-violet-500 bg-violet-50 text-violet-900' : 'border-stone-200 bg-white text-slate-600'
+                paymentMethod === 'card' ? 'border-violet-500 bg-violet-50 dark:bg-violet-900/30 text-violet-900 dark:text-violet-100' : 'border-stone-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400'
               }`}>
               <CreditCard className="w-4 h-4" />Plastik
             </button>
@@ -1717,13 +1779,13 @@ function QuickAddForm({ category, expenseCat, onSubmit, variant = 'income', work
       )}
 
       <label className="block">
-        <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">Izoh (ixtiyoriy)</span>
+        <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Izoh (ixtiyoriy)</span>
         <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Qo'shimcha ma'lumot"
           onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-          className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-emerald-600 outline-none" />
+          className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm focus:border-emerald-600 outline-none" />
       </label>
       <button onClick={submit} disabled={isPerUnit ? !qty || parseAmount(qty) <= 0 : !amount || parseAmount(amount) <= 0}
-        className={`w-full ${accentBtn} disabled:bg-stone-300 text-white font-semibold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2`}>
+        className={`w-full ${accentBtn} disabled:bg-stone-300 dark:bg-slate-600 text-white font-semibold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2`}>
         <Save className="w-4 h-4" />Saqlash
       </button>
     </div>
@@ -1735,29 +1797,70 @@ function QuickAddForm({ category, expenseCat, onSubmit, variant = 'income', work
 // ============================================================
 function TxRow({ tx, onDelete, accent }) {
   const time = tx.createdAt ? new Date(tx.createdAt).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' }) : '';
+  // Swipe-to-delete (mobil uchun)
+  const [dragX, setDragX] = useState(0);
+  const startXRef = useRef(0);
+  const draggingRef = useRef(false);
+  const SWIPE_THRESHOLD = 80;
+
+  function onTouchStart(e) {
+    startXRef.current = e.touches[0].clientX;
+    draggingRef.current = true;
+  }
+  function onTouchMove(e) {
+    if (!draggingRef.current) return;
+    const dx = e.touches[0].clientX - startXRef.current;
+    // Faqat chapga sudrash (manfiy)
+    if (dx < 0) setDragX(Math.max(dx, -120));
+    else if (dragX !== 0) setDragX(Math.min(0, dx));
+  }
+  function onTouchEnd() {
+    draggingRef.current = false;
+    if (Math.abs(dragX) > SWIPE_THRESHOLD) {
+      onDelete(tx.id);
+    } else {
+      setDragX(0);
+    }
+  }
+
+  const showDeleteHint = dragX < -20;
+
   return (
-    <div className="bg-white rounded-lg border border-stone-200 px-3 py-2 flex items-center justify-between gap-2">
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2 flex-wrap">
-          <p className={`text-sm font-bold ${accent === 'rose' ? 'text-rose-700' : 'text-emerald-700'}`}>
-            {accent === 'rose' ? '−' : '+'}{fmtSom(tx.amount)}
-          </p>
-          {tx.qty && <span className="text-[11px] text-slate-500">({tx.qty} dona{tx.qtyEaten ? ` + ${tx.qtyEaten} yedi` : ''})</span>}
-          {tx.paymentMethod === 'card' && (
-            <span className="text-[9px] bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded font-bold">PLASTIK</span>
+    <div className="relative overflow-hidden rounded-lg">
+      {/* Background o'chirish ko'rsatkichi */}
+      <div className={`absolute inset-y-0 right-0 flex items-center justify-end pr-4 bg-rose-600 transition-opacity ${showDeleteHint ? 'opacity-100' : 'opacity-0'}`}
+        style={{ width: Math.min(120, Math.abs(dragX)) + 'px' }}>
+        <Trash2 className="w-4 h-4 text-white" />
+      </div>
+      <div
+        className="bg-white dark:bg-slate-800 rounded-lg border border-stone-200 dark:border-slate-700 px-3 py-2 flex items-center justify-between gap-2 transition-transform"
+        style={{ transform: `translateX(${dragX}px)`, touchAction: 'pan-y' }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <p className={`text-sm font-bold ${accent === 'rose' ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-300'}`}>
+              {accent === 'rose' ? '−' : '+'}{fmtSom(tx.amount)}
+            </p>
+            {tx.qty && <span className="text-[11px] text-slate-500 dark:text-slate-400">({tx.qty} dona{tx.qtyEaten ? ` + ${tx.qtyEaten} yedi` : ''})</span>}
+            {tx.paymentMethod === 'card' && (
+              <span className="text-[9px] bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded font-bold">PLASTIK</span>
+            )}
+          </div>
+          {(tx.note || tx.payee) && (
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+              {tx.payee && <span className="font-semibold text-amber-700 dark:text-amber-300">{tx.payee}</span>}
+              {tx.payee && tx.note && ' • '}{tx.note}
+            </p>
           )}
         </div>
-        {(tx.note || tx.payee) && (
-          <p className="text-[11px] text-slate-500 truncate">
-            {tx.payee && <span className="font-semibold text-amber-700">{tx.payee}</span>}
-            {tx.payee && tx.note && ' • '}{tx.note}
-          </p>
-        )}
+        {time && <span className="text-[10px] text-slate-400 dark:text-slate-500 flex-shrink-0">{time}</span>}
+        <button onClick={() => onDelete(tx.id)} className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded transition-colors flex-shrink-0">
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
       </div>
-      {time && <span className="text-[10px] text-slate-400 flex-shrink-0">{time}</span>}
-      <button onClick={() => onDelete(tx.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors flex-shrink-0">
-        <Trash2 className="w-3.5 h-3.5" />
-      </button>
     </div>
   );
 }
@@ -1850,17 +1953,17 @@ function WorkerSalaryPanel({ cat, date, workers, catTxs, onAdd, onDelete }) {
   const todayTotal = todayPaymentsList.reduce((s, t) => s + Number(t.amount), 0);
 
   return (
-    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-      <div className="bg-amber-50 px-4 py-3 border-b border-stone-200 flex items-center gap-2">
-        <Users className="w-4 h-4 text-amber-700" />
-        <h3 className="text-sm font-semibold text-amber-900 flex-1">{cat.name}</h3>
-        {hasChanges && <span className="text-[9px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded font-bold">{dirtyWorkers.length} ta o'zgarish</span>}
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
+      <div className="bg-amber-50 dark:bg-amber-900/30 px-4 py-3 border-b border-stone-200 dark:border-slate-700 flex items-center gap-2">
+        <Users className="w-4 h-4 text-amber-700 dark:text-amber-300" />
+        <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-100 flex-1">{cat.name}</h3>
+        {hasChanges && <span className="text-[9px] bg-amber-200 text-amber-900 dark:text-amber-100 px-1.5 py-0.5 rounded font-bold">{dirtyWorkers.length} ta o'zgarish</span>}
       </div>
 
       <div className="p-4 space-y-2">
         {workers.length === 0 && (
-          <p className="text-center text-sm text-slate-400 py-4">
-            Faol ishchi yo'q. <span className="text-slate-600">Sozlama → Ishchilar</span> dan qo'shing.
+          <p className="text-center text-sm text-slate-400 dark:text-slate-500 py-4">
+            Faol ishchi yo'q. <span className="text-slate-600 dark:text-slate-400">Sozlama → Ishchilar</span> dan qo'shing.
           </p>
         )}
 
@@ -1869,23 +1972,23 @@ function WorkerSalaryPanel({ cat, date, workers, catTxs, onAdd, onDelete }) {
           const inputVal = amounts[w.id] || '';
           const isDirty = Number(inputVal || 0) !== todayPaid;
           return (
-            <div key={w.id} className={`grid grid-cols-[auto_1fr_2fr] gap-2 items-center p-2 rounded-lg ${isDirty ? 'bg-amber-50 border border-amber-200' : 'bg-stone-50'}`}>
+            <div key={w.id} className={`grid grid-cols-[auto_1fr_2fr] gap-2 items-center p-2 rounded-lg ${isDirty ? 'bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800' : 'bg-stone-50 dark:bg-slate-900'}`}>
               {w.code ? (
-                <span className="text-[10px] bg-stone-200 text-stone-700 font-mono px-1.5 py-1 rounded font-bold">{w.code}</span>
+                <span className="text-[10px] bg-stone-200 dark:bg-slate-700 text-stone-700 font-mono px-1.5 py-1 rounded font-bold">{w.code}</span>
               ) : (
-                <div className="w-6 h-6 bg-amber-100 rounded-full flex items-center justify-center">
-                  <span className="text-[11px] font-bold text-amber-800">{w.name.charAt(0).toUpperCase()}</span>
+                <div className="w-6 h-6 bg-amber-100 dark:bg-amber-900/50 rounded-full flex items-center justify-center">
+                  <span className="text-[11px] font-bold text-amber-800 dark:text-amber-200">{w.name.charAt(0).toUpperCase()}</span>
                 </div>
               )}
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-slate-900 truncate">{w.name}</p>
-                {todayPaid > 0 && <p className="text-[10px] text-emerald-700">Bugun: {fmtSom(todayPaid)}</p>}
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{w.name}</p>
+                {todayPaid > 0 && <p className="text-[10px] text-emerald-700 dark:text-emerald-300">Bugun: {fmtSom(todayPaid)}</p>}
               </div>
               <input type="text" inputMode="decimal" value={inputVal}
                 onChange={(e) => setAmounts(prev => ({ ...prev, [w.id]: e.target.value }))}
                 onKeyDown={(e) => { if (e.key === 'Enter') saveAll(); }}
                 placeholder="0"
-                className="px-2 py-2 border border-stone-300 rounded-lg text-sm font-semibold text-right focus:border-amber-600 outline-none bg-white" />
+                className="px-2 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm font-semibold text-right focus:border-amber-600 outline-none bg-white dark:bg-slate-800" />
             </div>
           );
         })}
@@ -1895,7 +1998,7 @@ function WorkerSalaryPanel({ cat, date, workers, catTxs, onAdd, onDelete }) {
             className={`w-full mt-2 font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm transition-colors ${
               hasChanges
                 ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                : 'bg-stone-200 text-stone-400 cursor-not-allowed'
+                : 'bg-stone-200 dark:bg-slate-700 text-stone-400 cursor-not-allowed'
             }`}>
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {saving ? 'Saqlanmoqda...' : hasChanges ? 'Hammasini saqlash' : 'O\'zgarish yo\'q'}
@@ -1903,24 +2006,24 @@ function WorkerSalaryPanel({ cat, date, workers, catTxs, onAdd, onDelete }) {
         )}
 
         <button onClick={() => setShowOther(!showOther)}
-          className="w-full bg-white border border-dashed border-stone-300 hover:border-stone-400 text-slate-600 font-medium py-2 rounded-lg text-xs flex items-center justify-center gap-1.5">
+          className="w-full bg-white dark:bg-slate-800 border border-dashed border-stone-300 dark:border-slate-600 hover:border-stone-400 dark:hover:border-slate-400 text-slate-600 dark:text-slate-400 font-medium py-2 rounded-lg text-xs flex items-center justify-center gap-1.5">
           {showOther ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
           {showOther ? 'Bekor' : "Boshqa kishi (ro'yxatda yo'q)"}
         </button>
 
         {showOther && (
-          <div className="bg-stone-50 border border-stone-200 rounded-lg p-3 space-y-2">
+          <div className="bg-stone-50 dark:bg-slate-900 border border-stone-200 dark:border-slate-700 rounded-lg p-3 space-y-2">
             <input type="text" value={otherName} onChange={(e) => setOtherName(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') saveOther(); }}
               placeholder="Ism familiya" autoFocus
-              className="w-full px-2 py-2 border border-stone-300 rounded-lg text-sm focus:border-amber-600 outline-none" />
+              className="w-full px-2 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm focus:border-amber-600 outline-none" />
             <input type="text" inputMode="decimal" value={otherAmount} onChange={(e) => setOtherAmount(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') saveOther(); }}
               placeholder="Summa"
-              className="w-full px-2 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-amber-600 outline-none" />
+              className="w-full px-2 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm font-semibold focus:border-amber-600 outline-none" />
             <button onClick={saveOther}
               disabled={!otherName.trim() || !otherAmount || parseAmount(otherAmount) <= 0}
-              className="w-full bg-amber-600 hover:bg-amber-700 disabled:bg-stone-300 text-white font-semibold py-2 rounded-lg text-sm flex items-center justify-center gap-1.5">
+              className="w-full bg-amber-600 hover:bg-amber-700 disabled:bg-stone-300 dark:bg-slate-600 text-white font-semibold py-2 rounded-lg text-sm flex items-center justify-center gap-1.5">
               <Save className="w-3.5 h-3.5" />Qo'shish
             </button>
           </div>
@@ -1928,10 +2031,10 @@ function WorkerSalaryPanel({ cat, date, workers, catTxs, onAdd, onDelete }) {
 
         {/* Bugungi to'lovlar — ixcham ro'yxat (eng pastida) */}
         {todayPaymentsList.length > 0 && (
-          <div className="mt-4 pt-3 border-t border-stone-200">
+          <div className="mt-4 pt-3 border-t border-stone-200 dark:border-slate-700">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Bugun berilgan</p>
-              <p className="text-[11px] font-bold text-amber-800">Jami: {fmtSom(todayTotal)}</p>
+              <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Bugun berilgan</p>
+              <p className="text-[11px] font-bold text-amber-800 dark:text-amber-200">Jami: {fmtSom(todayTotal)}</p>
             </div>
             <div className="space-y-1">
               {todayPaymentsList.map(t => {
@@ -1939,14 +2042,14 @@ function WorkerSalaryPanel({ cat, date, workers, catTxs, onAdd, onDelete }) {
                 const w = t.payeeWorkerId ? workers.find(x => x.id === t.payeeWorkerId) : null;
                 const codeStr = w?.code ? `[${w.code}] ` : '';
                 return (
-                  <div key={t.id} className="flex items-center gap-2 px-2 py-1 bg-stone-50 rounded text-xs">
-                    {time && <span className="text-slate-400 font-mono w-10 flex-shrink-0">{time}</span>}
-                    <span className="flex-1 truncate text-slate-700">
+                  <div key={t.id} className="flex items-center gap-2 px-2 py-1 bg-stone-50 dark:bg-slate-900 rounded text-xs">
+                    {time && <span className="text-slate-400 dark:text-slate-500 font-mono w-10 flex-shrink-0">{time}</span>}
+                    <span className="flex-1 truncate text-slate-700 dark:text-slate-300 dark:text-slate-600">
                       {codeStr && <span className="font-mono text-stone-600">{codeStr}</span>}
                       <span className="font-medium">{t.payee || '—'}</span>
                     </span>
-                    <span className="font-bold text-amber-800 whitespace-nowrap">{fmtSom(t.amount)}</span>
-                    <button onClick={() => onDelete(t.id)} className="text-slate-300 hover:text-rose-600 p-0.5">
+                    <span className="font-bold text-amber-800 dark:text-amber-200 whitespace-nowrap">{fmtSom(t.amount)}</span>
+                    <button onClick={() => onDelete(t.id)} className="text-slate-300 dark:text-slate-600 hover:text-rose-600 dark:text-rose-400 p-0.5">
                       <X className="w-3 h-3" />
                     </button>
                   </div>
@@ -1967,24 +2070,24 @@ function DrinksTab({ date, drinks, drinkDaily, stats, onAdd, onUpdate, onDelete,
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 mb-2">
-        <Package className="w-5 h-5 text-blue-700" />
-        <h2 className="text-lg font-semibold text-slate-900">Suvlar boshqaruvi</h2>
+        <Package className="w-5 h-5 text-blue-700 dark:text-blue-300" />
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Suvlar boshqaruvi</h2>
       </div>
 
-      <div className="bg-white rounded-xl border border-stone-200 p-1 grid grid-cols-2 gap-1">
-        <button onClick={() => setView('daily')} className={`py-2 rounded-lg text-sm font-semibold transition-colors ${view === 'daily' ? 'bg-emerald-700 text-white' : 'text-slate-600'}`}>
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 p-1 grid grid-cols-2 gap-1">
+        <button onClick={() => setView('daily')} className={`py-2 rounded-lg text-sm font-semibold transition-colors ${view === 'daily' ? 'bg-emerald-700 text-white' : 'text-slate-600 dark:text-slate-400'}`}>
           Kunlik hisob
         </button>
-        <button onClick={() => setView('catalog')} className={`py-2 rounded-lg text-sm font-semibold transition-colors ${view === 'catalog' ? 'bg-emerald-700 text-white' : 'text-slate-600'}`}>
+        <button onClick={() => setView('catalog')} className={`py-2 rounded-lg text-sm font-semibold transition-colors ${view === 'catalog' ? 'bg-emerald-700 text-white' : 'text-slate-600 dark:text-slate-400'}`}>
           Suvlar ro'yxati
         </button>
       </div>
 
       {view === 'daily' && (
         <>
-          <p className="text-xs text-slate-500">Sana: {formatUzbDateFull(date)}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Sana: {formatUzbDateFull(date)}</p>
           {drinks.length === 0 && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-900">
+            <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-xl p-4 text-sm text-blue-900 dark:text-blue-100">
               Avval <strong>Suvlar ro'yxati</strong>ga suv qo'shing.
             </div>
           )}
@@ -2014,25 +2117,25 @@ function DrinksTab({ date, drinks, drinkDaily, stats, onAdd, onUpdate, onDelete,
             <Plus className="w-4 h-4" />Yangi suv qo'shish
           </button>
           {showAddForm && <DrinkForm onSubmit={(data) => { onAdd(data); setShowAddForm(false); }} onCancel={() => setShowAddForm(false)} />}
-          {drinks.length === 0 && !showAddForm && <div className="text-center py-8 text-slate-400 text-sm">Hali suv qo'shilmagan</div>}
+          {drinks.length === 0 && !showAddForm && <div className="text-center py-8 text-slate-400 dark:text-slate-500 text-sm">Hali suv qo'shilmagan</div>}
           {drinks.map(drink => (
-            <div key={drink.id} className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+            <div key={drink.id} className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
               {editingId === drink.id ? (
                 <DrinkForm initial={drink} onSubmit={(data) => { onUpdate(drink.id, data); setEditingId(null); }} onCancel={() => setEditingId(null)} />
               ) : (
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-slate-900">{drink.name}</p>
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">{drink.name}</p>
                       <div className="grid grid-cols-3 gap-2 mt-3">
-                        <div className="bg-stone-50 rounded-lg p-2"><p className="text-[10px] text-slate-500 uppercase">Tan narx</p><p className="text-sm font-bold text-slate-900">{fmt(drink.purchasePrice)}</p></div>
-                        <div className="bg-emerald-50 rounded-lg p-2"><p className="text-[10px] text-emerald-700 uppercase">Sotuv</p><p className="text-sm font-bold text-emerald-900">{fmt(drink.salePrice)}</p></div>
-                        <div className="bg-amber-50 rounded-lg p-2"><p className="text-[10px] text-amber-700 uppercase">Foyda</p><p className="text-sm font-bold text-amber-900">{fmt(Number(drink.salePrice) - Number(drink.purchasePrice))}</p></div>
+                        <div className="bg-stone-50 dark:bg-slate-900 rounded-lg p-2"><p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">Tan narx</p><p className="text-sm font-bold text-slate-900 dark:text-slate-100">{fmt(drink.purchasePrice)}</p></div>
+                        <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-lg p-2"><p className="text-[10px] text-emerald-700 dark:text-emerald-300 uppercase">Sotuv</p><p className="text-sm font-bold text-emerald-900 dark:text-emerald-100">{fmt(drink.salePrice)}</p></div>
+                        <div className="bg-amber-50 dark:bg-amber-900/30 rounded-lg p-2"><p className="text-[10px] text-amber-700 dark:text-amber-300 uppercase">Foyda</p><p className="text-sm font-bold text-amber-900 dark:text-amber-100">{fmt(Number(drink.salePrice) - Number(drink.purchasePrice))}</p></div>
                       </div>
                     </div>
                     <div className="flex flex-col gap-1.5 flex-shrink-0">
-                      <button onClick={() => setEditingId(drink.id)} className="p-2 text-slate-500 hover:bg-stone-100 rounded-lg"><Edit3 className="w-4 h-4" /></button>
-                      <button onClick={() => onDelete(drink.id)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={() => setEditingId(drink.id)} className="p-2 text-slate-500 dark:text-slate-400 hover:bg-stone-100 dark:hover:bg-slate-700 dark:bg-slate-800 rounded-lg"><Edit3 className="w-4 h-4" /></button>
+                      <button onClick={() => onDelete(drink.id)} className="p-2 text-rose-500 hover:bg-rose-50 dark:bg-rose-900/30 rounded-lg"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </div>
                 </div>
@@ -2071,36 +2174,36 @@ function DrinkDayCard({ drink, start, added, end, date, onSave }) {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-stone-200 p-4">
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 p-4">
       <div className="flex items-center justify-between mb-3">
-        <p className="font-semibold text-slate-900">{drink.name}</p>
-        <p className="text-[11px] text-slate-500">{fmt(drink.salePrice)} so'm/dona</p>
+        <p className="font-semibold text-slate-900 dark:text-slate-100">{drink.name}</p>
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">{fmt(drink.salePrice)} so'm/dona</p>
       </div>
       <div className="grid grid-cols-3 gap-2">
         <label className="block">
-          <span className="text-[10px] font-semibold text-slate-500 uppercase">Boshlang'ich</span>
+          <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase">Boshlang'ich</span>
           <input type="text" inputMode="decimal" value={startVal} onChange={(e) => { setStartVal(e.target.value); setDirty(true); }}
             onKeyDown={(e) => { if (e.key === "Enter" && dirty) save(); }}
-            className="w-full mt-1 px-2 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
+            className="w-full mt-1 px-2 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
         </label>
         <label className="block">
-          <span className="text-[10px] font-semibold text-slate-500 uppercase">Qo'shildi</span>
+          <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase">Qo'shildi</span>
           <input type="text" inputMode="decimal" value={addedVal} onChange={(e) => { setAddedVal(e.target.value); setDirty(true); }}
             onKeyDown={(e) => { if (e.key === "Enter" && dirty) save(); }}
-            className="w-full mt-1 px-2 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
+            className="w-full mt-1 px-2 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
         </label>
         <label className="block">
-          <span className="text-[10px] font-semibold text-slate-500 uppercase">Qoldi</span>
+          <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase">Qoldi</span>
           <input type="text" inputMode="decimal" value={endVal} onChange={(e) => { setEndVal(e.target.value); setDirty(true); }} placeholder="—"
             onKeyDown={(e) => { if (e.key === "Enter" && dirty) save(); }}
-            className="w-full mt-1 px-2 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
+            className="w-full mt-1 px-2 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
         </label>
       </div>
       {endVal !== '' && (
         <div className="mt-3 grid grid-cols-3 gap-2">
-          <div className="bg-blue-50 rounded-lg px-2 py-1.5"><p className="text-[9px] text-blue-700 font-bold uppercase">Sotildi</p><p className="text-sm font-bold text-blue-900">{localSold} d.</p></div>
-          <div className="bg-emerald-50 rounded-lg px-2 py-1.5"><p className="text-[9px] text-emerald-700 font-bold uppercase">Tushum</p><p className="text-sm font-bold text-emerald-900">{fmt(localRevenue)}</p></div>
-          <div className="bg-amber-50 rounded-lg px-2 py-1.5"><p className="text-[9px] text-amber-700 font-bold uppercase">Foyda</p><p className="text-sm font-bold text-amber-900">{fmt(localProfit)}</p></div>
+          <div className="bg-blue-50 dark:bg-blue-900/30 rounded-lg px-2 py-1.5"><p className="text-[9px] text-blue-700 dark:text-blue-300 font-bold uppercase">Sotildi</p><p className="text-sm font-bold text-blue-900 dark:text-blue-100">{localSold} d.</p></div>
+          <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-lg px-2 py-1.5"><p className="text-[9px] text-emerald-700 dark:text-emerald-300 font-bold uppercase">Tushum</p><p className="text-sm font-bold text-emerald-900 dark:text-emerald-100">{fmt(localRevenue)}</p></div>
+          <div className="bg-amber-50 dark:bg-amber-900/30 rounded-lg px-2 py-1.5"><p className="text-[9px] text-amber-700 dark:text-amber-300 font-bold uppercase">Foyda</p><p className="text-sm font-bold text-amber-900 dark:text-amber-100">{fmt(localProfit)}</p></div>
         </div>
       )}
       {dirty && (
@@ -2124,35 +2227,35 @@ function DrinkForm({ initial, onSubmit, onCancel }) {
   const profit = (parseAmount(salePrice) || 0) - (parseAmount(purchasePrice) || 0);
 
   return (
-    <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-3">
-      <p className="text-sm font-semibold text-slate-900">{initial ? "Suvni tahrirlash" : "Yangi suv"}</p>
+    <div className="bg-stone-50 dark:bg-slate-900 border border-stone-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
+      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{initial ? "Suvni tahrirlash" : "Yangi suv"}</p>
       <label className="block">
-        <span className="text-[11px] font-semibold text-slate-600 uppercase">Nomi</span>
+        <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase">Nomi</span>
         <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Kola 0.5L"
           onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-          className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-emerald-600 outline-none" />
+          className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm focus:border-emerald-600 outline-none" />
       </label>
       <div className="grid grid-cols-2 gap-2">
         <label className="block">
-          <span className="text-[11px] font-semibold text-slate-600 uppercase">Tan narx</span>
+          <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase">Tan narx</span>
           <input type="text" inputMode="decimal" value={purchasePrice} onChange={(e) => setPurchasePrice(e.target.value)} placeholder="6000"
             onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-            className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
+            className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
         </label>
         <label className="block">
-          <span className="text-[11px] font-semibold text-slate-600 uppercase">Sotuv narx</span>
+          <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase">Sotuv narx</span>
           <input type="text" inputMode="decimal" value={salePrice} onChange={(e) => setSalePrice(e.target.value)} placeholder="10000"
             onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-            className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
+            className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
         </label>
       </div>
       {salePrice && purchasePrice && (
-        <div className={`rounded-lg px-3 py-2 text-xs ${profit >= 0 ? 'bg-emerald-50 text-emerald-900 border border-emerald-200' : 'bg-rose-50 text-rose-900 border border-rose-200'}`}>
+        <div className={`rounded-lg px-3 py-2 text-xs ${profit >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-900 dark:text-emerald-100 border border-emerald-200 dark:border-emerald-800' : 'bg-rose-50 dark:bg-rose-900/30 text-rose-900 dark:text-rose-100 border border-rose-200 dark:border-rose-800'}`}>
           Foyda har bir donadan: <strong>{fmtSom(profit)}</strong>
         </div>
       )}
       <div className="grid grid-cols-2 gap-2 pt-1">
-        <button onClick={onCancel} className="bg-stone-200 hover:bg-stone-300 text-slate-700 font-semibold py-2 rounded-lg text-sm">Bekor</button>
+        <button onClick={onCancel} className="bg-stone-200 dark:bg-slate-700 hover:bg-stone-300 dark:bg-slate-600 text-slate-700 dark:text-slate-300 dark:text-slate-600 font-semibold py-2 rounded-lg text-sm">Bekor</button>
         <button onClick={submit} className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2 rounded-lg text-sm">Saqlash</button>
       </div>
     </div>
@@ -2184,20 +2287,20 @@ function DebtsSection({ debts, stats, onAdd, onUpdate, onDelete, onPayment }) {
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <button onClick={() => setFilter('owed_to_us')}
-          className={`rounded-xl p-3 text-left border-2 transition-all ${filter === 'owed_to_us' ? 'border-emerald-500 bg-emerald-50' : 'border-stone-200 bg-white'}`}>
+          className={`rounded-xl p-3 text-left border-2 transition-all ${filter === 'owed_to_us' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30' : 'border-stone-200 dark:border-slate-700 bg-white dark:bg-slate-800'}`}>
           <div className="flex items-center gap-1.5 mb-1">
-            <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-700" />
-            <p className="text-[10px] text-emerald-900 font-bold uppercase">Bizga qarzdor</p>
+            <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-300" />
+            <p className="text-[10px] text-emerald-900 dark:text-emerald-100 font-bold uppercase">Bizga qarzdor</p>
           </div>
-          <p className="text-base font-bold text-emerald-900">{fmtSom(stats.owedToUs)}</p>
+          <p className="text-base font-bold text-emerald-900 dark:text-emerald-100">{fmtSom(stats.owedToUs)}</p>
         </button>
         <button onClick={() => setFilter('we_owe')}
-          className={`rounded-xl p-3 text-left border-2 transition-all ${filter === 'we_owe' ? 'border-rose-500 bg-rose-50' : 'border-stone-200 bg-white'}`}>
+          className={`rounded-xl p-3 text-left border-2 transition-all ${filter === 'we_owe' ? 'border-rose-500 bg-rose-50 dark:bg-rose-900/30' : 'border-stone-200 dark:border-slate-700 bg-white dark:bg-slate-800'}`}>
           <div className="flex items-center gap-1.5 mb-1">
-            <ArrowUpRight className="w-3.5 h-3.5 text-rose-700" />
-            <p className="text-[10px] text-rose-900 font-bold uppercase">Biz qarzdormiz</p>
+            <ArrowUpRight className="w-3.5 h-3.5 text-rose-700 dark:text-rose-300" />
+            <p className="text-[10px] text-rose-900 dark:text-rose-100 font-bold uppercase">Biz qarzdormiz</p>
           </div>
-          <p className="text-base font-bold text-rose-900">{fmtSom(stats.weOwe)}</p>
+          <p className="text-base font-bold text-rose-900 dark:text-rose-100">{fmtSom(stats.weOwe)}</p>
         </button>
       </div>
 
@@ -2213,21 +2316,21 @@ function DebtsSection({ debts, stats, onAdd, onUpdate, onDelete, onPayment }) {
           onCancel={() => setShowAddForm(false)} />
       )}
 
-      <div className="bg-stone-50 rounded-xl border border-stone-200 p-1 grid grid-cols-3 gap-1">
+      <div className="bg-stone-50 dark:bg-slate-900 rounded-xl border border-stone-200 dark:border-slate-700 p-1 grid grid-cols-3 gap-1">
         {[
           { id: 'pending', label: "Hal bo'lmagan" },
           { id: 'paid', label: "To'langan" },
           { id: 'all', label: 'Hammasi' }
         ].map(s => (
           <button key={s.id} onClick={() => setShowStatus(s.id)}
-            className={`py-1.5 rounded-lg text-xs font-semibold transition-colors ${showStatus === s.id ? 'bg-emerald-700 text-white' : 'text-slate-600'}`}>
+            className={`py-1.5 rounded-lg text-xs font-semibold transition-colors ${showStatus === s.id ? 'bg-emerald-700 text-white' : 'text-slate-600 dark:text-slate-400'}`}>
             {s.label}
           </button>
         ))}
       </div>
 
       {filtered.length === 0 && (
-        <div className="text-center py-6 text-slate-400 text-sm">
+        <div className="text-center py-6 text-slate-400 dark:text-slate-500 text-sm">
           {showStatus === 'pending' ? "Hal bo'lmagan qarz yo'q" : showStatus === 'paid' ? "To'langan qarz yo'q" : "Qarzlar ro'yxati bo'sh"}
         </div>
       )}
@@ -2262,52 +2365,52 @@ function DebtCard({ debt, isEditing, isPaying, onEdit, onCancelEdit, onPay, onCa
 
   if (isEditing) {
     return (
-      <div className="bg-white rounded-xl border-2 border-emerald-500 overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border-2 border-emerald-500 overflow-hidden">
         <DebtForm initial={debt} onSubmit={onSave} onCancel={onCancelEdit} />
       </div>
     );
   }
 
   return (
-    <div className={`bg-white rounded-xl border overflow-hidden ${
-      isPaid ? 'border-stone-200 opacity-70' :
-      isOverdue ? 'border-rose-300' :
-      dueSoon ? 'border-amber-300' :
-      'border-stone-200'
+    <div className={`bg-white dark:bg-slate-800 rounded-xl border overflow-hidden ${
+      isPaid ? 'border-stone-200 dark:border-slate-700 opacity-70' :
+      isOverdue ? 'border-rose-300 dark:border-rose-700' :
+      dueSoon ? 'border-amber-300 dark:border-amber-700' :
+      'border-stone-200 dark:border-slate-700'
     }`}>
       <div className="p-4">
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <p className="text-base font-bold text-slate-900 truncate">{debt.partyName}</p>
-              {isPaid && <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">TO'LANGAN</span>}
-              {isPartial && !isPaid && <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold">QISMAN</span>}
-              {isOverdue && <span className="text-[9px] bg-rose-100 text-rose-800 px-1.5 py-0.5 rounded font-bold">MUDDAT O'TGAN</span>}
-              {dueSoon && <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold">YAQIN</span>}
+              <p className="text-base font-bold text-slate-900 dark:text-slate-100 truncate">{debt.partyName}</p>
+              {isPaid && <span className="text-[9px] bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 px-1.5 py-0.5 rounded font-bold">TO'LANGAN</span>}
+              {isPartial && !isPaid && <span className="text-[9px] bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 px-1.5 py-0.5 rounded font-bold">QISMAN</span>}
+              {isOverdue && <span className="text-[9px] bg-rose-100 dark:bg-rose-900/50 text-rose-800 dark:text-rose-200 px-1.5 py-0.5 rounded font-bold">MUDDAT O'TGAN</span>}
+              {dueSoon && <span className="text-[9px] bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 px-1.5 py-0.5 rounded font-bold">YAQIN</span>}
             </div>
-            {debt.note && <p className="text-xs text-slate-500 mt-1">{debt.note}</p>}
+            {debt.note && <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{debt.note}</p>}
           </div>
           <div className="text-right flex-shrink-0">
-            <p className={`text-lg font-bold ${isOwedToUs ? 'text-emerald-700' : 'text-rose-700'}`}>{fmtSom(remaining)}</p>
-            {isPartial && <p className="text-[10px] text-slate-500">Jami: {fmtSom(total)}</p>}
+            <p className={`text-lg font-bold ${isOwedToUs ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'}`}>{fmtSom(remaining)}</p>
+            {isPartial && <p className="text-[10px] text-slate-500 dark:text-slate-400">Jami: {fmtSom(total)}</p>}
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500 mt-2">
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400 mt-2">
           <span className="flex items-center gap-1"><CalendarIcon className="w-3 h-3" />Olingan: {formatUzbDate(debt.takenDate)}</span>
           {debt.dueDate && (
-            <span className={`flex items-center gap-1 ${isOverdue ? 'text-rose-700 font-semibold' : dueSoon ? 'text-amber-700 font-semibold' : ''}`}>
+            <span className={`flex items-center gap-1 ${isOverdue ? 'text-rose-700 dark:text-rose-300 font-semibold' : dueSoon ? 'text-amber-700 dark:text-amber-300 font-semibold' : ''}`}>
               <Clock className="w-3 h-3" />Muddat: {formatUzbDate(debt.dueDate)}
               {isOverdue && ` (+${daysOver} kun)`}
             </span>
           )}
           {isPaid && debt.paidDate && (
-            <span className="flex items-center gap-1 text-emerald-700"><CheckCircle2 className="w-3 h-3" />To'langan: {formatUzbDate(debt.paidDate)}</span>
+            <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-300"><CheckCircle2 className="w-3 h-3" />To'langan: {formatUzbDate(debt.paidDate)}</span>
           )}
         </div>
 
         {isPaying && (
-          <div className="mt-3 bg-stone-50 border border-stone-200 rounded-lg p-3">
+          <div className="mt-3 bg-stone-50 dark:bg-slate-900 border border-stone-200 dark:border-slate-700 rounded-lg p-3">
             <PaymentForm maxAmount={remaining} onSubmit={onRecordPayment} onCancel={onCancelPay} />
           </div>
         )}
@@ -2317,20 +2420,20 @@ function DebtCard({ debt, isEditing, isPaying, onEdit, onCancelEdit, onPay, onCa
             <button onClick={onPay} className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-1">
               <Banknote className="w-3.5 h-3.5" />To'lov
             </button>
-            <button onClick={onEdit} className="bg-stone-100 hover:bg-stone-200 text-slate-700 text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-1">
+            <button onClick={onEdit} className="bg-stone-100 dark:bg-slate-700 dark:bg-slate-800 hover:bg-stone-200 dark:hover:bg-slate-600 dark:bg-slate-700 text-slate-700 dark:text-slate-300 dark:text-slate-600 text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-1">
               <Edit3 className="w-3.5 h-3.5" />Tahrir
             </button>
-            <button onClick={onDelete} className="bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-1">
+            <button onClick={onDelete} className="bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300 text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-1">
               <Trash2 className="w-3.5 h-3.5" />O'chir
             </button>
           </div>
         )}
         {!isPaying && isPaid && (
           <div className="grid grid-cols-2 gap-2 mt-3">
-            <button onClick={onEdit} className="bg-stone-100 hover:bg-stone-200 text-slate-700 text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-1">
+            <button onClick={onEdit} className="bg-stone-100 dark:bg-slate-700 dark:bg-slate-800 hover:bg-stone-200 dark:hover:bg-slate-600 dark:bg-slate-700 text-slate-700 dark:text-slate-300 dark:text-slate-600 text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-1">
               <Edit3 className="w-3.5 h-3.5" />Tahrir
             </button>
-            <button onClick={onDelete} className="bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-1">
+            <button onClick={onDelete} className="bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300 text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-1">
               <Trash2 className="w-3.5 h-3.5" />O'chir
             </button>
           </div>
@@ -2363,56 +2466,56 @@ function DebtForm({ initial, defaultType, onSubmit, onCancel }) {
   }
 
   return (
-    <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-3">
-      <p className="text-sm font-semibold text-slate-900">{initial ? "Qarzni tahrirlash" : "Yangi qarz"}</p>
+    <div className="bg-stone-50 dark:bg-slate-900 border border-stone-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
+      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{initial ? "Qarzni tahrirlash" : "Yangi qarz"}</p>
 
       <div className="grid grid-cols-2 gap-2">
         <button onClick={() => setType('owed_to_us')}
-          className={`py-2.5 rounded-lg text-xs font-semibold border-2 transition-colors ${type === 'owed_to_us' ? 'border-emerald-500 bg-emerald-50 text-emerald-900' : 'border-stone-200 bg-white text-slate-600'}`}>
+          className={`py-2.5 rounded-lg text-xs font-semibold border-2 transition-colors ${type === 'owed_to_us' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-900 dark:text-emerald-100' : 'border-stone-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>
           Bizga qarzdor
         </button>
         <button onClick={() => setType('we_owe')}
-          className={`py-2.5 rounded-lg text-xs font-semibold border-2 transition-colors ${type === 'we_owe' ? 'border-rose-500 bg-rose-50 text-rose-900' : 'border-stone-200 bg-white text-slate-600'}`}>
+          className={`py-2.5 rounded-lg text-xs font-semibold border-2 transition-colors ${type === 'we_owe' ? 'border-rose-500 bg-rose-50 dark:bg-rose-900/30 text-rose-900 dark:text-rose-100' : 'border-stone-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>
           Biz qarzdormiz
         </button>
       </div>
 
       <label className="block">
-        <span className="text-[11px] font-semibold text-slate-600 uppercase">Ism / Tashkilot</span>
+        <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase">Ism / Tashkilot</span>
         <input type="text" value={partyName} onChange={(e) => setPartyName(e.target.value)} placeholder="Masalan: Aziz aka"
           onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-          className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-emerald-600 outline-none" />
+          className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm focus:border-emerald-600 outline-none" />
       </label>
 
       <label className="block">
-        <span className="text-[11px] font-semibold text-slate-600 uppercase">Summa (so'm)</span>
+        <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase">Summa (so'm)</span>
         <input type="text" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0"
             onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-          className="w-full mt-1 px-3 py-2.5 border border-stone-300 rounded-lg text-base font-semibold focus:border-emerald-600 outline-none" />
+          className="w-full mt-1 px-3 py-2.5 border border-stone-300 dark:border-slate-600 rounded-lg text-base font-semibold focus:border-emerald-600 outline-none" />
       </label>
 
       <div className="grid grid-cols-2 gap-2">
         <label className="block">
-          <span className="text-[11px] font-semibold text-slate-600 uppercase">Olingan sana</span>
+          <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase">Olingan sana</span>
           <input type="date" value={takenDate} onChange={(e) => setTakenDate(e.target.value)}
-            className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-emerald-600 outline-none" />
+            className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm focus:border-emerald-600 outline-none" />
         </label>
         <label className="block">
-          <span className="text-[11px] font-semibold text-slate-600 uppercase">To'lash muddati</span>
+          <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase">To'lash muddati</span>
           <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
-            className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-emerald-600 outline-none" />
+            className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm focus:border-emerald-600 outline-none" />
         </label>
       </div>
 
       <label className="block">
-        <span className="text-[11px] font-semibold text-slate-600 uppercase">Izoh (ixtiyoriy)</span>
+        <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase">Izoh (ixtiyoriy)</span>
         <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Nima uchun"
           onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-          className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-emerald-600 outline-none" />
+          className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm focus:border-emerald-600 outline-none" />
       </label>
 
       <div className="grid grid-cols-2 gap-2 pt-1">
-        <button onClick={onCancel} className="bg-stone-200 hover:bg-stone-300 text-slate-700 font-semibold py-2 rounded-lg text-sm">Bekor</button>
+        <button onClick={onCancel} className="bg-stone-200 dark:bg-slate-700 hover:bg-stone-300 dark:bg-slate-600 text-slate-700 dark:text-slate-300 dark:text-slate-600 font-semibold py-2 rounded-lg text-sm">Bekor</button>
         <button onClick={submit} className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2 rounded-lg text-sm">Saqlash</button>
       </div>
     </div>
@@ -2431,15 +2534,15 @@ function PaymentForm({ maxAmount, onSubmit, onCancel }) {
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold text-slate-700">To'langan summa (qoldiq: {fmtSom(maxAmount)})</p>
+      <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 dark:text-slate-600">To'langan summa (qoldiq: {fmtSom(maxAmount)})</p>
       <input type="text" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" autoFocus
         onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-        className="w-full px-3 py-2.5 border border-stone-300 rounded-lg text-base font-semibold focus:border-emerald-600 outline-none" />
+        className="w-full px-3 py-2.5 border border-stone-300 dark:border-slate-600 rounded-lg text-base font-semibold focus:border-emerald-600 outline-none" />
       <div className="grid grid-cols-3 gap-2">
-        <button onClick={onCancel} className="bg-stone-200 hover:bg-stone-300 text-slate-700 font-semibold py-2 rounded-lg text-xs">Bekor</button>
+        <button onClick={onCancel} className="bg-stone-200 dark:bg-slate-700 hover:bg-stone-300 dark:bg-slate-600 text-slate-700 dark:text-slate-300 dark:text-slate-600 font-semibold py-2 rounded-lg text-xs">Bekor</button>
         <button onClick={fullPay} className="bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 rounded-lg text-xs">To'liq to'lov</button>
         <button onClick={submit} disabled={!amount || parseAmount(amount) <= 0}
-          className="bg-emerald-700 hover:bg-emerald-800 disabled:bg-stone-300 text-white font-semibold py-2 rounded-lg text-xs">Saqlash</button>
+          className="bg-emerald-700 hover:bg-emerald-800 disabled:bg-stone-300 dark:bg-slate-600 text-white font-semibold py-2 rounded-lg text-xs">Saqlash</button>
       </div>
     </div>
   );
@@ -2607,30 +2710,30 @@ function ReportsTab({ categories, transactions, drinkDaily, drinks, cashRegister
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 mb-2">
-        <BarChart3 className="w-5 h-5 text-emerald-700" />
-        <h2 className="text-lg font-semibold text-slate-900">Hisobotlar</h2>
+        <BarChart3 className="w-5 h-5 text-emerald-700 dark:text-emerald-300" />
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Hisobotlar</h2>
       </div>
 
-      <div className="bg-white rounded-xl border border-stone-200 p-3 space-y-2">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 p-3 space-y-2">
         <div className="grid grid-cols-2 gap-2">
           <button onClick={() => setPeriod('month')}
-            className={`py-2 rounded-lg text-sm font-semibold transition-colors ${period === 'month' ? 'bg-emerald-700 text-white' : 'bg-stone-100 text-slate-600'}`}>
+            className={`py-2 rounded-lg text-sm font-semibold transition-colors ${period === 'month' ? 'bg-emerald-700 text-white' : 'bg-stone-100 dark:bg-slate-700 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>
             Oylik
           </button>
           <button onClick={() => setPeriod('year')}
-            className={`py-2 rounded-lg text-sm font-semibold transition-colors ${period === 'year' ? 'bg-emerald-700 text-white' : 'bg-stone-100 text-slate-600'}`}>
+            className={`py-2 rounded-lg text-sm font-semibold transition-colors ${period === 'year' ? 'bg-emerald-700 text-white' : 'bg-stone-100 dark:bg-slate-700 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>
             Yillik
           </button>
         </div>
         <div className="grid grid-cols-2 gap-2">
           {period === 'month' && (
             <select value={month} onChange={(e) => setMonth(Number(e.target.value))}
-              className="px-3 py-2 border border-stone-300 rounded-lg text-sm bg-white">
+              className="px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800">
               {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
             </select>
           )}
           <select value={year} onChange={(e) => setYear(Number(e.target.value))}
-            className={`px-3 py-2 border border-stone-300 rounded-lg text-sm bg-white ${period === 'year' ? 'col-span-2' : ''}`}>
+            className={`px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 ${period === 'year' ? 'col-span-2' : ''}`}>
             {[today.getFullYear() - 2, today.getFullYear() - 1, today.getFullYear(), today.getFullYear() + 1].map(y =>
               <option key={y} value={y}>{y}</option>)}
           </select>
@@ -2639,12 +2742,12 @@ function ReportsTab({ categories, transactions, drinkDaily, drinks, cashRegister
 
       <div className="grid grid-cols-2 gap-2">
         <button onClick={downloadPDF} disabled={pdfLoading}
-          className="bg-amber-600 hover:bg-amber-700 disabled:bg-stone-300 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors">
+          className="bg-amber-600 hover:bg-amber-700 disabled:bg-stone-300 dark:bg-slate-600 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors">
           {pdfLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <FileDown className="w-5 h-5" />}
           {pdfLoading ? '...' : 'PDF'}
         </button>
         <button onClick={printReport} disabled={printLoading}
-          className="bg-slate-700 hover:bg-slate-800 disabled:bg-stone-300 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors">
+          className="bg-slate-700 hover:bg-slate-800 disabled:bg-stone-300 dark:bg-slate-600 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors">
           {printLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Printer className="w-5 h-5" />}
           {printLoading ? '...' : 'Chek (80mm)'}
         </button>
@@ -2668,10 +2771,10 @@ function ReportsTab({ categories, transactions, drinkDaily, drinks, cashRegister
 
       {/* Chartlar (#5) */}
       {(stats.incomePieData.length > 0 || stats.dailyChartData.length > 0) && (
-        <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-          <div className="bg-emerald-50 px-4 py-2.5 border-b border-stone-200 flex items-center gap-2">
-            <PieChartIcon className="w-4 h-4 text-emerald-700" />
-            <h3 className="text-sm font-semibold text-emerald-900">Vizualizatsiya</h3>
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
+          <div className="bg-emerald-50 dark:bg-emerald-900/30 px-4 py-2.5 border-b border-stone-200 dark:border-slate-700 flex items-center gap-2">
+            <PieChartIcon className="w-4 h-4 text-emerald-700 dark:text-emerald-300" />
+            <h3 className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">Vizualizatsiya</h3>
           </div>
           <div className="p-4 space-y-5">
             <ChartsRenderer stats={stats} />
@@ -2679,13 +2782,13 @@ function ReportsTab({ categories, transactions, drinkDaily, drinks, cashRegister
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-        <div className="bg-emerald-50 px-4 py-2.5 border-b border-stone-200 flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-emerald-700" />
-          <h3 className="text-sm font-semibold text-emerald-900">Tushumlar</h3>
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
+        <div className="bg-emerald-50 dark:bg-emerald-900/30 px-4 py-2.5 border-b border-stone-200 dark:border-slate-700 flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-emerald-700 dark:text-emerald-300" />
+          <h3 className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">Tushumlar</h3>
         </div>
-        <div className="divide-y divide-stone-100">
-          {Object.keys(stats.incByCat).length === 0 && <div className="p-4 text-center text-sm text-slate-400">Tushum yo'q</div>}
+        <div className="divide-y divide-stone-100 dark:divide-slate-700 dark:divide-slate-800">
+          {Object.keys(stats.incByCat).length === 0 && <div className="p-4 text-center text-sm text-slate-400 dark:text-slate-500">Tushum yo'q</div>}
           {categories.income
             .filter(c => stats.incByCat[c.id])
             .sort((a, b) => stats.incByCat[b.id] - stats.incByCat[a.id])
@@ -2698,16 +2801,16 @@ function ReportsTab({ categories, transactions, drinkDaily, drinks, cashRegister
                   <div className="flex items-center justify-between gap-2 mb-1.5">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="text-lg">{cat.icon || '💰'}</span>
-                      <p className="text-sm font-medium text-slate-900 truncate">{cat.name}</p>
+                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{cat.name}</p>
                     </div>
-                    <p className="text-sm font-bold text-emerald-700 whitespace-nowrap">{fmtSom(amount)}</p>
+                    <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300 whitespace-nowrap">{fmtSom(amount)}</p>
                   </div>
-                  <div className="bg-stone-100 rounded-full h-1.5 overflow-hidden">
+                  <div className="bg-stone-100 dark:bg-slate-700 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
                     <div className="bg-emerald-500 h-full" style={{ width: `${pct}%` }}></div>
                   </div>
                   <div className="flex items-center justify-between mt-1">
-                    <p className="text-[11px] text-slate-500">{pct}%</p>
-                    {ud && <p className="text-[11px] text-slate-500">{ud.qty} dona{ud.qtyEaten > 0 ? ` (${ud.qtyEaten} yedi)` : ''}</p>}
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">{pct}%</p>
+                    {ud && <p className="text-[11px] text-slate-500 dark:text-slate-400">{ud.qty} dona{ud.qtyEaten > 0 ? ` (${ud.qtyEaten} yedi)` : ''}</p>}
                   </div>
                 </div>
               );
@@ -2715,13 +2818,13 @@ function ReportsTab({ categories, transactions, drinkDaily, drinks, cashRegister
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-        <div className="bg-rose-50 px-4 py-2.5 border-b border-stone-200 flex items-center gap-2">
-          <TrendingDown className="w-4 h-4 text-rose-700" />
-          <h3 className="text-sm font-semibold text-rose-900">Chiqimlar</h3>
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
+        <div className="bg-rose-50 dark:bg-rose-900/30 px-4 py-2.5 border-b border-stone-200 dark:border-slate-700 flex items-center gap-2">
+          <TrendingDown className="w-4 h-4 text-rose-700 dark:text-rose-300" />
+          <h3 className="text-sm font-semibold text-rose-900 dark:text-rose-100">Chiqimlar</h3>
         </div>
-        <div className="divide-y divide-stone-100">
-          {Object.keys(stats.expByCat).length === 0 && <div className="p-4 text-center text-sm text-slate-400">Chiqim yo'q</div>}
+        <div className="divide-y divide-stone-100 dark:divide-slate-700 dark:divide-slate-800">
+          {Object.keys(stats.expByCat).length === 0 && <div className="p-4 text-center text-sm text-slate-400 dark:text-slate-500">Chiqim yo'q</div>}
           {categories.expense
             .filter(c => stats.expByCat[c.id])
             .sort((a, b) => stats.expByCat[b.id] - stats.expByCat[a.id])
@@ -2732,15 +2835,15 @@ function ReportsTab({ categories, transactions, drinkDaily, drinks, cashRegister
                 <div key={cat.id} className="px-4 py-3">
                   <div className="flex items-center justify-between gap-2 mb-1.5">
                     <div className="flex items-center gap-2 min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">{cat.name}</p>
-                      {cat.isCashless && <span className="text-[9px] bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded font-bold flex-shrink-0">PLASTIK</span>}
+                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{cat.name}</p>
+                      {cat.isCashless && <span className="text-[9px] bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded font-bold flex-shrink-0">PLASTIK</span>}
                     </div>
-                    <p className="text-sm font-bold text-rose-700 whitespace-nowrap">{fmtSom(amount)}</p>
+                    <p className="text-sm font-bold text-rose-700 dark:text-rose-300 whitespace-nowrap">{fmtSom(amount)}</p>
                   </div>
-                  <div className="bg-stone-100 rounded-full h-1.5 overflow-hidden">
+                  <div className="bg-stone-100 dark:bg-slate-700 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
                     <div className="bg-rose-500 h-full" style={{ width: `${pct}%` }}></div>
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-1">{pct}%</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{pct}%</p>
                 </div>
               );
             })}
@@ -2748,15 +2851,15 @@ function ReportsTab({ categories, transactions, drinkDaily, drinks, cashRegister
       </div>
 
       {stats.drinksSold > 0 && (
-        <div className="bg-white rounded-xl border border-stone-200 p-4">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 p-4">
           <div className="flex items-center gap-2 mb-3">
-            <Package className="w-4 h-4 text-blue-700" />
-            <h3 className="text-sm font-semibold text-slate-900">Suvlar bo'yicha</h3>
+            <Package className="w-4 h-4 text-blue-700 dark:text-blue-300" />
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Suvlar bo'yicha</h3>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <div className="bg-blue-50 rounded-lg p-2.5"><p className="text-[10px] text-blue-700 uppercase font-bold">Sotildi</p><p className="text-sm font-bold text-blue-900">{stats.drinksSold} dona</p></div>
-            <div className="bg-emerald-50 rounded-lg p-2.5"><p className="text-[10px] text-emerald-700 uppercase font-bold">Tushum</p><p className="text-sm font-bold text-emerald-900">{fmt(stats.drinksRevenue)}</p></div>
-            <div className="bg-amber-50 rounded-lg p-2.5"><p className="text-[10px] text-amber-700 uppercase font-bold">Sof foyda</p><p className="text-sm font-bold text-amber-900">{fmt(stats.drinksProfit)}</p></div>
+            <div className="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-2.5"><p className="text-[10px] text-blue-700 dark:text-blue-300 uppercase font-bold">Sotildi</p><p className="text-sm font-bold text-blue-900 dark:text-blue-100">{stats.drinksSold} dona</p></div>
+            <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-lg p-2.5"><p className="text-[10px] text-emerald-700 dark:text-emerald-300 uppercase font-bold">Tushum</p><p className="text-sm font-bold text-emerald-900 dark:text-emerald-100">{fmt(stats.drinksRevenue)}</p></div>
+            <div className="bg-amber-50 dark:bg-amber-900/30 rounded-lg p-2.5"><p className="text-[10px] text-amber-700 dark:text-amber-300 uppercase font-bold">Sof foyda</p><p className="text-sm font-bold text-amber-900 dark:text-amber-100">{fmt(stats.drinksProfit)}</p></div>
           </div>
         </div>
       )}
@@ -2767,19 +2870,19 @@ function ReportsTab({ categories, transactions, drinkDaily, drinks, cashRegister
       )}
 
       {/* Qarzlar bo'limi (Hisobotga ko'chirildi #3) */}
-      <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
         <button onClick={() => setShowDebts(!showDebts)}
-          className="w-full bg-amber-50 px-4 py-3 border-b border-stone-200 flex items-center justify-between hover:bg-amber-100 transition-colors">
+          className="w-full bg-amber-50 dark:bg-amber-900/30 px-4 py-3 border-b border-stone-200 dark:border-slate-700 flex items-center justify-between hover:bg-amber-100 dark:bg-amber-900/50 transition-colors">
           <div className="flex items-center gap-2">
-            <HandCoins className="w-4 h-4 text-amber-700" />
-            <h3 className="text-sm font-semibold text-amber-900">Qarzlar</h3>
+            <HandCoins className="w-4 h-4 text-amber-700 dark:text-amber-300" />
+            <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-100">Qarzlar</h3>
             {(debtsStats.owedToUs > 0 || debtsStats.weOwe > 0) && (
-              <span className="text-[10px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded font-bold">
+              <span className="text-[10px] bg-amber-200 text-amber-900 dark:text-amber-100 px-1.5 py-0.5 rounded font-bold">
                 {debts.filter(d => d.status === 'pending').length}
               </span>
             )}
           </div>
-          {showDebts ? <ChevronUp className="w-4 h-4 text-amber-700" /> : <ChevronDown className="w-4 h-4 text-amber-700" />}
+          {showDebts ? <ChevronUp className="w-4 h-4 text-amber-700 dark:text-amber-300" /> : <ChevronDown className="w-4 h-4 text-amber-700 dark:text-amber-300" />}
         </button>
         {showDebts && (
           <div className="p-4">
@@ -2805,26 +2908,26 @@ function WeekdayAnalysisCard({ weekdayStats, period }) {
   const maxAbs = Math.max(...valid.map(d => Math.abs(d.avgNet)), 1);
 
   return (
-    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-      <div className="bg-emerald-50 px-4 py-2.5 border-b border-stone-200 flex items-center gap-2">
-        <BarChart3 className="w-4 h-4 text-emerald-700" />
-        <h3 className="text-sm font-semibold text-emerald-900">
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
+      <div className="bg-emerald-50 dark:bg-emerald-900/30 px-4 py-2.5 border-b border-stone-200 dark:border-slate-700 flex items-center gap-2">
+        <BarChart3 className="w-4 h-4 text-emerald-700 dark:text-emerald-300" />
+        <h3 className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
           Hafta kunlari tahlili {period === 'month' ? '(oylik)' : '(yillik)'}
         </h3>
       </div>
 
       {/* Eng yaxshi va eng yomon kunlar */}
       {best && worst && best.dow !== worst.dow && (
-        <div className="grid grid-cols-2 gap-2 p-3 bg-stone-50 border-b border-stone-200">
-          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5">
-            <p className="text-[10px] font-bold text-emerald-700 uppercase">Eng yaxshi kun</p>
-            <p className="text-sm font-bold text-emerald-900 mt-0.5">{best.name}</p>
-            <p className="text-[11px] text-emerald-800">o'rtacha {fmtSom(best.avgNet)}</p>
+        <div className="grid grid-cols-2 gap-2 p-3 bg-stone-50 dark:bg-slate-900 border-b border-stone-200 dark:border-slate-700">
+          <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-2.5">
+            <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 uppercase">Eng yaxshi kun</p>
+            <p className="text-sm font-bold text-emerald-900 dark:text-emerald-100 mt-0.5">{best.name}</p>
+            <p className="text-[11px] text-emerald-800 dark:text-emerald-200">o'rtacha {fmtSom(best.avgNet)}</p>
           </div>
-          <div className="bg-rose-50 border border-rose-200 rounded-lg p-2.5">
-            <p className="text-[10px] font-bold text-rose-700 uppercase">Eng yomon kun</p>
-            <p className="text-sm font-bold text-rose-900 mt-0.5">{worst.name}</p>
-            <p className="text-[11px] text-rose-800">o'rtacha {fmtSom(worst.avgNet)}</p>
+          <div className="bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800 rounded-lg p-2.5">
+            <p className="text-[10px] font-bold text-rose-700 dark:text-rose-300 uppercase">Eng yomon kun</p>
+            <p className="text-sm font-bold text-rose-900 dark:text-rose-100 mt-0.5">{worst.name}</p>
+            <p className="text-[11px] text-rose-800 dark:text-rose-200">o'rtacha {fmtSom(worst.avgNet)}</p>
           </div>
         </div>
       )}
@@ -2836,8 +2939,8 @@ function WeekdayAnalysisCard({ weekdayStats, period }) {
           const positive = d.avgNet >= 0;
           return (
             <div key={d.dow} className="grid grid-cols-[60px_1fr_90px] items-center gap-2 text-xs">
-              <span className="text-slate-700 font-semibold">{d.name}</span>
-              <div className="bg-stone-100 rounded-full h-4 overflow-hidden flex">
+              <span className="text-slate-700 dark:text-slate-300 dark:text-slate-600 font-semibold">{d.name}</span>
+              <div className="bg-stone-100 dark:bg-slate-700 dark:bg-slate-800 rounded-full h-4 overflow-hidden flex">
                 {d.count > 0 && (
                   <div className={`h-full ${positive ? 'bg-emerald-500' : 'bg-rose-500'}`}
                     style={{ width: `${Math.max(pct, 2)}%` }} />
@@ -2846,20 +2949,20 @@ function WeekdayAnalysisCard({ weekdayStats, period }) {
               <div className="text-right">
                 {d.count > 0 ? (
                   <>
-                    <span className={`font-bold ${positive ? 'text-emerald-700' : 'text-rose-700'}`}>
+                    <span className={`font-bold ${positive ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'}`}>
                       {positive ? '+' : ''}{fmt(d.avgNet)}
                     </span>
-                    <span className="text-[9px] text-slate-400 block">{d.count} kun</span>
+                    <span className="text-[9px] text-slate-400 dark:text-slate-500 block">{d.count} kun</span>
                   </>
                 ) : (
-                  <span className="text-slate-300">—</span>
+                  <span className="text-slate-300 dark:text-slate-600">—</span>
                 )}
               </div>
             </div>
           );
         })}
       </div>
-      <div className="px-3 pb-3 text-[10px] text-slate-400">
+      <div className="px-3 pb-3 text-[10px] text-slate-400 dark:text-slate-500">
         O'rtacha sof natija (tushum − chiqim) shu hafta kunidan
       </div>
     </div>
@@ -2874,25 +2977,25 @@ function ChartsRenderer({ stats }) {
         <>
           {stats.incomePieData.length > 0 && (
             <div>
-              <p className="text-[11px] font-semibold text-slate-500 uppercase mb-2 text-center">Tushumlar tarkibi</p>
+              <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2 text-center">Tushumlar tarkibi</p>
               <C.CategoryPie data={stats.incomePieData} palette="income" />
             </div>
           )}
           {stats.expensePieData.length > 0 && (
             <div>
-              <p className="text-[11px] font-semibold text-slate-500 uppercase mb-2 text-center">Chiqimlar tarkibi</p>
+              <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2 text-center">Chiqimlar tarkibi</p>
               <C.CategoryPie data={stats.expensePieData} palette="expense" />
             </div>
           )}
           {stats.dailyChartData.length > 0 && (
             <div>
-              <p className="text-[11px] font-semibold text-slate-500 uppercase mb-2 text-center">Kunlik dinamika</p>
+              <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2 text-center">Kunlik dinamika</p>
               <C.DailyLineChart data={stats.dailyChartData} />
             </div>
           )}
           {stats.dailyChartData.length > 0 && (
             <div>
-              <p className="text-[11px] font-semibold text-slate-500 uppercase mb-2 text-center">Kunlik sof natija</p>
+              <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2 text-center">Kunlik sof natija</p>
               <C.NetBarChart data={stats.dailyChartData} />
             </div>
           )}
@@ -2911,7 +3014,7 @@ function ChartsLoader({ children }) {
     });
     return () => { alive = false; };
   }, []);
-  if (!mod) return <div className="h-48 flex items-center justify-center text-sm text-slate-400"><Loader2 className="w-5 h-5 animate-spin mr-2" />Yuklanmoqda...</div>;
+  if (!mod) return <div className="h-48 flex items-center justify-center text-sm text-slate-400 dark:text-slate-500"><Loader2 className="w-5 h-5 animate-spin mr-2" />Yuklanmoqda...</div>;
   return children(mod);
 }
 
@@ -2919,32 +3022,36 @@ function ChartsLoader({ children }) {
 // SETTINGS TAB
 // ============================================================
 function SettingsTab({ categories, workers, transactions, workerByName, onAddCat, onUpdateCat, onDeleteCat, onAddWorker, onUpdateWorker, onDeleteWorker, tgConfig, onSaveTgConfig, onToast,
-  drinks, drinkDaily, cashRegister, debts, onImportData }) {
+  drinks, drinkDaily, cashRegister, debts, onImportData, auditLog }) {
   const [section, setSection] = useState('categories');
 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 mb-2">
-        <SettingsIcon className="w-5 h-5 text-emerald-700" />
-        <h2 className="text-lg font-semibold text-slate-900">Sozlamalar</h2>
+        <SettingsIcon className="w-5 h-5 text-emerald-700 dark:text-emerald-300" />
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Sozlamalar</h2>
       </div>
 
-      <div className="bg-white rounded-xl border border-stone-200 p-1 grid grid-cols-4 gap-1">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 p-1 grid grid-cols-5 gap-1">
         <button onClick={() => setSection('categories')}
-          className={`py-2 rounded-lg text-[11px] font-semibold transition-colors ${section === 'categories' ? 'bg-emerald-700 text-white' : 'text-slate-600'}`}>
+          className={`py-2 rounded-lg text-[10px] font-semibold transition-colors ${section === 'categories' ? 'bg-emerald-700 text-white' : 'text-slate-600 dark:text-slate-400'}`}>
           Bo'limlar
         </button>
         <button onClick={() => setSection('workers')}
-          className={`py-2 rounded-lg text-[11px] font-semibold transition-colors ${section === 'workers' ? 'bg-emerald-700 text-white' : 'text-slate-600'}`}>
+          className={`py-2 rounded-lg text-[10px] font-semibold transition-colors ${section === 'workers' ? 'bg-emerald-700 text-white' : 'text-slate-600 dark:text-slate-400'}`}>
           Ishchilar
         </button>
         <button onClick={() => setSection('telegram')}
-          className={`py-2 rounded-lg text-[11px] font-semibold transition-colors ${section === 'telegram' ? 'bg-emerald-700 text-white' : 'text-slate-600'}`}>
+          className={`py-2 rounded-lg text-[10px] font-semibold transition-colors ${section === 'telegram' ? 'bg-emerald-700 text-white' : 'text-slate-600 dark:text-slate-400'}`}>
           Telegram
         </button>
         <button onClick={() => setSection('backup')}
-          className={`py-2 rounded-lg text-[11px] font-semibold transition-colors ${section === 'backup' ? 'bg-emerald-700 text-white' : 'text-slate-600'}`}>
+          className={`py-2 rounded-lg text-[10px] font-semibold transition-colors ${section === 'backup' ? 'bg-emerald-700 text-white' : 'text-slate-600 dark:text-slate-400'}`}>
           Backup
+        </button>
+        <button onClick={() => setSection('audit')}
+          className={`py-2 rounded-lg text-[10px] font-semibold transition-colors ${section === 'audit' ? 'bg-emerald-700 text-white' : 'text-slate-600 dark:text-slate-400'}`}>
+          Tarix
         </button>
       </div>
 
@@ -2964,7 +3071,102 @@ function SettingsTab({ categories, workers, transactions, workerByName, onAddCat
           cashRegister={cashRegister} debts={debts} workers={workers} tgConfig={tgConfig}
           onImport={onImportData} onToast={onToast} />
       )}
+      {section === 'audit' && (
+        <AuditSection auditLog={auditLog} />
+      )}
     </div>
+  );
+}
+
+// ============================================================
+// AUDIT SECTION — o'zgarishlar tarixi
+// ============================================================
+function AuditSection({ auditLog }) {
+  const [filter, setFilter] = useState('all');
+
+  const filtered = auditLog.filter(e => {
+    if (filter === 'all') return true;
+    if (filter === 'tx') return e.action.startsWith('tx_');
+    if (filter === 'worker') return e.action.startsWith('worker_');
+    if (filter === 'debt') return e.action.startsWith('debt_');
+    if (filter === 'cat') return e.action.startsWith('cat_');
+    return true;
+  });
+
+  function actionLabel(a) {
+    const map = {
+      tx_income_add: ['📈', 'Tushum'],
+      tx_expense_add: ['📉', 'Chiqim'],
+      tx_delete: ['🗑️', "Tx o'chirildi"],
+      tx_undo_delete: ['↩️', 'Tx tiklandi'],
+      cat_add: ['➕', "Bo'lim qo'shildi"],
+      cat_update: ['✏️', "Bo'lim yangilandi"],
+      cat_delete: ['🗑️', "Bo'lim o'chirildi"],
+      worker_add: ['👤', "Ishchi qo'shildi"],
+      worker_update: ['✏️', 'Ishchi yangilandi'],
+      worker_delete: ['🗑️', "Ishchi o'chirildi"],
+      debt_add: ['🤝', "Qarz qo'shildi"],
+      debt_delete: ['🗑️', "Qarz o'chirildi"],
+      debt_payment: ['💵', "Qarz to'lovi"],
+    };
+    return map[a] || ['•', a];
+  }
+
+  function formatTime(ts) {
+    const d = new Date(ts);
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    if (isToday) {
+      return d.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
+    }
+    return formatUzbDate(d.toISOString().slice(0, 10)) + ' ' + d.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  return (
+    <>
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 p-1 flex flex-wrap gap-1">
+        {[
+          { id: 'all', label: 'Hammasi' },
+          { id: 'tx', label: 'Tx' },
+          { id: 'cat', label: "Bo'lim" },
+          { id: 'worker', label: 'Ishchi' },
+          { id: 'debt', label: 'Qarz' },
+        ].map(f => (
+          <button key={f.id} onClick={() => setFilter(f.id)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filter === f.id ? 'bg-emerald-700 text-white' : 'text-slate-600 dark:text-slate-400'}`}>
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+        Oxirgi 500 ta o'zgarish saqlanadi. {auditLog.length} ta yozuv mavjud.
+      </p>
+
+      {filtered.length === 0 && (
+        <div className="text-center py-8 text-slate-400 dark:text-slate-500 text-sm">
+          {auditLog.length === 0 ? "Hozircha yozuvlar yo'q" : "Tanlangan filtr bo'yicha yozuv yo'q"}
+        </div>
+      )}
+
+      <div className="space-y-1.5">
+        {filtered.map(e => {
+          const [icon, label] = actionLabel(e.action);
+          return (
+            <div key={e.id} className="bg-white dark:bg-slate-800 border border-stone-200 dark:border-slate-700 rounded-lg px-3 py-2 flex items-start gap-2">
+              <span className="text-base flex-shrink-0">{icon}</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">{label}</p>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500">{formatTime(e.ts)}</p>
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 truncate">{e.details}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
@@ -3022,12 +3224,12 @@ function BackupSection({ categories, transactions, drinks, drinkDaily, cashRegis
 
   return (
     <>
-      <div className="bg-white rounded-xl border border-stone-200 p-4 space-y-3">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 p-4 space-y-3">
         <div className="flex items-center gap-2">
-          <FileDown className="w-4 h-4 text-emerald-700" />
-          <p className="text-sm font-semibold text-slate-900">Ma'lumotlarni saqlash</p>
+          <FileDown className="w-4 h-4 text-emerald-700 dark:text-emerald-300" />
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Ma'lumotlarni saqlash</p>
         </div>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-slate-500 dark:text-slate-400">
           Hozirda: {txCount} tranzaksiya, {workerCount} ishchi, {drinkCount} suv, {debtCount} qarz
         </p>
 
@@ -3035,42 +3237,42 @@ function BackupSection({ categories, transactions, drinks, drinkDaily, cashRegis
           className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm">
           <FileDown className="w-4 h-4" />JSON backup yuklash (to'liq)
         </button>
-        <p className="text-[11px] text-slate-500 -mt-1">Hamma narsa — bo'limlar, tranzaksiyalar, ishchilar, qarzlar, sozlamalar. Keyin shu fayl bilan tiklash mumkin.</p>
+        <p className="text-[11px] text-slate-500 dark:text-slate-400 -mt-1">Hamma narsa — bo'limlar, tranzaksiyalar, ishchilar, qarzlar, sozlamalar. Keyin shu fayl bilan tiklash mumkin.</p>
 
         <button onClick={handleExportCSV}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm">
           <FileDown className="w-4 h-4" />Tranzaksiyalarni Excel/CSV ga
         </button>
-        <p className="text-[11px] text-slate-500 -mt-1">Excel'da ochib ko'rishingiz va buxgalterga yuborishingiz uchun.</p>
+        <p className="text-[11px] text-slate-500 dark:text-slate-400 -mt-1">Excel'da ochib ko'rishingiz va buxgalterga yuborishingiz uchun.</p>
       </div>
 
-      <div className="bg-white rounded-xl border border-stone-200 p-4 space-y-3">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 p-4 space-y-3">
         <div className="flex items-center gap-2">
-          <RefreshCw className="w-4 h-4 text-amber-700" />
-          <p className="text-sm font-semibold text-slate-900">Backup'dan tiklash</p>
+          <RefreshCw className="w-4 h-4 text-amber-700 dark:text-amber-300" />
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Backup'dan tiklash</p>
         </div>
-        <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-[11px] text-amber-900 flex items-start gap-2">
+        <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2 text-[11px] text-amber-900 dark:text-amber-100 flex items-start gap-2">
           <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
           <span>Diqqat: tiklash hozirgi barcha ma'lumotlaringizni almashtiradi. Avval hozirgi holatni JSON backup qilib oling.</span>
         </div>
         <input ref={fileRef} type="file" accept=".json" onChange={handleFileSelected} className="hidden" />
         <button onClick={handlePickImport}
-          className="w-full bg-stone-100 hover:bg-stone-200 text-slate-700 font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm border border-stone-300">
+          className="w-full bg-stone-100 dark:bg-slate-700 dark:bg-slate-800 hover:bg-stone-200 dark:hover:bg-slate-600 dark:bg-slate-700 text-slate-700 dark:text-slate-300 dark:text-slate-600 font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm border border-stone-300 dark:border-slate-600">
           <RefreshCw className="w-4 h-4" />JSON faylni tanlash
         </button>
       </div>
 
       {confirmRestore && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-5 space-y-3">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-sm w-full p-5 space-y-3">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-rose-600" />
-              <p className="font-bold text-slate-900">Tiklashni tasdiqlang</p>
+              <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+              <p className="font-bold text-slate-900 dark:text-slate-100">Tiklashni tasdiqlang</p>
             </div>
-            <p className="text-sm text-slate-700">
+            <p className="text-sm text-slate-700 dark:text-slate-300 dark:text-slate-600">
               Bu tiklash <strong>hozirgi barcha</strong> ma'lumotlarni almashtiradi:
             </p>
-            <div className="bg-stone-50 rounded-lg p-3 text-xs space-y-1">
+            <div className="bg-stone-50 dark:bg-slate-900 rounded-lg p-3 text-xs space-y-1">
               <div>• {confirmRestore.transactions?.length || 0} tranzaksiya</div>
               <div>• {confirmRestore.workers?.length || 0} ishchi</div>
               <div>• {confirmRestore.drinks?.length || 0} suv</div>
@@ -3078,11 +3280,11 @@ function BackupSection({ categories, transactions, drinks, drinkDaily, cashRegis
             </div>
             <div className="grid grid-cols-2 gap-2 pt-1">
               <button onClick={() => setConfirmRestore(null)}
-                className="bg-stone-200 hover:bg-stone-300 text-slate-700 font-semibold py-2 rounded-lg text-sm">
+                className="bg-stone-200 dark:bg-slate-700 hover:bg-stone-300 dark:bg-slate-600 text-slate-700 dark:text-slate-300 dark:text-slate-600 font-semibold py-2 rounded-lg text-sm">
                 Bekor
               </button>
               <button onClick={applyRestore} disabled={importing}
-                className="bg-rose-600 hover:bg-rose-700 disabled:bg-stone-300 text-white font-semibold py-2 rounded-lg text-sm flex items-center justify-center gap-1">
+                className="bg-rose-600 hover:bg-rose-700 disabled:bg-stone-300 dark:bg-slate-600 text-white font-semibold py-2 rounded-lg text-sm flex items-center justify-center gap-1">
                 {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 Tiklash
               </button>
@@ -3106,13 +3308,13 @@ function CategoriesSection({ categories, onAdd, onUpdate, onDelete }) {
 
   return (
     <>
-      <div className="bg-white rounded-xl border border-stone-200 p-1 grid grid-cols-2 gap-1">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 p-1 grid grid-cols-2 gap-1">
         <button onClick={() => { setTab('income'); setShowForm(false); setEditingId(null); }}
-          className={`py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'income' ? 'bg-emerald-700 text-white' : 'text-slate-600'}`}>
+          className={`py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'income' ? 'bg-emerald-700 text-white' : 'text-slate-600 dark:text-slate-400'}`}>
           Tushum bo'limlari
         </button>
         <button onClick={() => { setTab('expense'); setShowForm(false); setEditingId(null); }}
-          className={`py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'expense' ? 'bg-rose-700 text-white' : 'text-slate-600'}`}>
+          className={`py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'expense' ? 'bg-rose-700 text-white' : 'text-slate-600 dark:text-slate-400'}`}>
           Chiqim bo'limlari
         </button>
       </div>
@@ -3124,7 +3326,7 @@ function CategoriesSection({ categories, onAdd, onUpdate, onDelete }) {
       </button>
 
       {showForm && (
-        <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
           <CategoryForm type={tab} incomeCategories={categories.income}
             onSubmit={(data) => { onAdd(tab, data); setShowForm(false); }}
             onCancel={() => setShowForm(false)} />
@@ -3132,9 +3334,9 @@ function CategoriesSection({ categories, onAdd, onUpdate, onDelete }) {
       )}
 
       <div className="space-y-2">
-        {list.length === 0 && <div className="text-center py-8 text-slate-400 text-sm">Bo'limlar yo'q</div>}
+        {list.length === 0 && <div className="text-center py-8 text-slate-400 dark:text-slate-500 text-sm">Bo'limlar yo'q</div>}
         {list.map(cat => (
-          <div key={cat.id} className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+          <div key={cat.id} className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
             {editingId === cat.id ? (
               <CategoryForm type={tab} incomeCategories={categories.income} initial={cat}
                 onSubmit={(data) => { onUpdate(tab, cat.id, data); setEditingId(null); }}
@@ -3144,17 +3346,17 @@ function CategoriesSection({ categories, onAdd, onUpdate, onDelete }) {
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                   {cat.icon && <span className="text-2xl">{cat.icon}</span>}
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900 truncate">{cat.name}</p>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{cat.name}</p>
                     <div className="flex flex-wrap gap-1 mt-1">
-                      {cat.perUnit && <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold">DONA × {fmt(cat.unitPrice)}</span>}
-                      {cat.trackEaten && <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold">YEYISHNI HISOBLA</span>}
-                      {cat.hasCommission && <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold">{cat.commissionPercent}% ULUSH</span>}
-                      {cat.autoFromDrinks && <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold">SUVLARDAN</span>}
-                      {cat.isCashless && <span className="text-[9px] bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded font-bold">PLASTIK (eski)</span>}
-                      {cat.trackPayee && <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold">ISHCHILAR</span>}
+                      {cat.perUnit && <span className="text-[9px] bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded font-bold">DONA × {fmt(cat.unitPrice)}</span>}
+                      {cat.trackEaten && <span className="text-[9px] bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded font-bold">YEYISHNI HISOBLA</span>}
+                      {cat.hasCommission && <span className="text-[9px] bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded font-bold">{cat.commissionPercent}% ULUSH</span>}
+                      {cat.autoFromDrinks && <span className="text-[9px] bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded font-bold">SUVLARDAN</span>}
+                      {cat.isCashless && <span className="text-[9px] bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded font-bold">PLASTIK (eski)</span>}
+                      {cat.trackPayee && <span className="text-[9px] bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded font-bold">ISHCHILAR</span>}
                     </div>
                     {cat.linkedTo && (
-                      <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
                         <Link2 className="w-3 h-3" />
                         {categories.income.find(c => c.id === cat.linkedTo)?.name || '—'}
                       </p>
@@ -3162,8 +3364,8 @@ function CategoriesSection({ categories, onAdd, onUpdate, onDelete }) {
                   </div>
                 </div>
                 <div className="flex flex-col gap-1.5 flex-shrink-0">
-                  <button onClick={() => setEditingId(cat.id)} className="p-2 text-slate-500 hover:bg-stone-100 rounded-lg"><Edit3 className="w-4 h-4" /></button>
-                  <button onClick={() => onDelete(tab, cat.id)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                  <button onClick={() => setEditingId(cat.id)} className="p-2 text-slate-500 dark:text-slate-400 hover:bg-stone-100 dark:hover:bg-slate-700 dark:bg-slate-800 rounded-lg"><Edit3 className="w-4 h-4" /></button>
+                  <button onClick={() => onDelete(tab, cat.id)} className="p-2 text-rose-500 hover:bg-rose-50 dark:bg-rose-900/30 rounded-lg"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
             )}
@@ -3211,20 +3413,20 @@ function CategoryForm({ type, incomeCategories, initial, onSubmit, onCancel }) {
 
   return (
     <div className="p-4 space-y-3">
-      <p className="text-sm font-semibold text-slate-900">{initial ? 'Tahrirlash' : `Yangi ${type === 'income' ? 'tushum' : 'chiqim'} bo'limi`}</p>
+      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{initial ? 'Tahrirlash' : `Yangi ${type === 'income' ? 'tushum' : 'chiqim'} bo'limi`}</p>
 
       <div className="grid grid-cols-3 gap-2">
         <label className="block">
-          <span className="text-[10px] font-semibold text-slate-600 uppercase">Belgi</span>
+          <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 uppercase">Belgi</span>
           <input type="text" value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="🥟" maxLength={2}
             onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-            className="w-full mt-1 px-2 py-2 border border-stone-300 rounded-lg text-base text-center focus:border-emerald-600 outline-none" />
+            className="w-full mt-1 px-2 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-base text-center focus:border-emerald-600 outline-none" />
         </label>
         <label className="block col-span-2">
-          <span className="text-[10px] font-semibold text-slate-600 uppercase">Nomi</span>
+          <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 uppercase">Nomi</span>
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Bo'lim nomi"
             onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-            className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-emerald-600 outline-none" />
+            className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm focus:border-emerald-600 outline-none" />
         </label>
       </div>
 
@@ -3232,41 +3434,41 @@ function CategoryForm({ type, incomeCategories, initial, onSubmit, onCancel }) {
         <>
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={perUnit} onChange={(e) => setPerUnit(e.target.checked)}
-              className="w-4 h-4 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500" />
-            <span className="text-sm text-slate-700">Donalab sotiladi (somsa kabi)</span>
+              className="w-4 h-4 rounded border-stone-300 dark:border-slate-600 text-emerald-600 dark:text-emerald-400 focus:ring-emerald-500" />
+            <span className="text-sm text-slate-700 dark:text-slate-300 dark:text-slate-600">Donalab sotiladi (somsa kabi)</span>
           </label>
           {perUnit && (
             <>
               <label className="block ml-6">
-                <span className="text-[10px] font-semibold text-slate-600 uppercase">Bir dona narxi</span>
+                <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 uppercase">Bir dona narxi</span>
                 <input type="text" inputMode="decimal" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} placeholder="5000"
                   onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-                  className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
+                  className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
               </label>
               <label className="flex items-center gap-2 cursor-pointer ml-6">
                 <input type="checkbox" checked={trackEaten} onChange={(e) => setTrackEaten(e.target.checked)}
-                  className="w-4 h-4 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500" />
-                <span className="text-sm text-slate-700">Ishchilar yegan dona sonini hisobla</span>
+                  className="w-4 h-4 rounded border-stone-300 dark:border-slate-600 text-emerald-600 dark:text-emerald-400 focus:ring-emerald-500" />
+                <span className="text-sm text-slate-700 dark:text-slate-300 dark:text-slate-600">Ishchilar yegan dona sonini hisobla</span>
               </label>
             </>
           )}
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={hasCommission} onChange={(e) => setHasCommission(e.target.checked)}
-              className="w-4 h-4 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500" />
-            <span className="text-sm text-slate-700">Ulush tushadi (shashlik kabi)</span>
+              className="w-4 h-4 rounded border-stone-300 dark:border-slate-600 text-emerald-600 dark:text-emerald-400 focus:ring-emerald-500" />
+            <span className="text-sm text-slate-700 dark:text-slate-300 dark:text-slate-600">Ulush tushadi (shashlik kabi)</span>
           </label>
           {hasCommission && (
             <label className="block ml-6">
-              <span className="text-[10px] font-semibold text-slate-600 uppercase">Ulush foizi (%)</span>
+              <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 uppercase">Ulush foizi (%)</span>
               <input type="text" inputMode="decimal" value={commissionPercent} onChange={(e) => setCommissionPercent(e.target.value)} placeholder="24"
                 onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-                className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
+                className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm font-semibold focus:border-emerald-600 outline-none" />
             </label>
           )}
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={autoFromDrinks} onChange={(e) => setAutoFromDrinks(e.target.checked)}
-              className="w-4 h-4 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500" />
-            <span className="text-sm text-slate-700">Avtomatik (Suvlar tabidan)</span>
+              className="w-4 h-4 rounded border-stone-300 dark:border-slate-600 text-emerald-600 dark:text-emerald-400 focus:ring-emerald-500" />
+            <span className="text-sm text-slate-700 dark:text-slate-300 dark:text-slate-600">Avtomatik (Suvlar tabidan)</span>
           </label>
         </>
       )}
@@ -3274,32 +3476,32 @@ function CategoryForm({ type, incomeCategories, initial, onSubmit, onCancel }) {
       {type === 'expense' && (
         <>
           <label className="block">
-            <span className="text-[10px] font-semibold text-slate-600 uppercase">Qaysi tushumga aloqador</span>
+            <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 uppercase">Qaysi tushumga aloqador</span>
             <select value={linkedTo} onChange={(e) => setLinkedTo(e.target.value)}
-              className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm bg-white focus:border-emerald-600 outline-none">
+              className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 focus:border-emerald-600 outline-none">
               <option value="">— Aloqasiz —</option>
               {incomeCategories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
             </select>
           </label>
-          <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-[11px] text-amber-900 flex items-start gap-2">
+          <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2 text-[11px] text-amber-900 dark:text-amber-100 flex items-start gap-2">
             <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <span>Plastik to'lovni endi <strong>Tushum</strong> tabida belgilash mumkin (har yozuv uchun). Eski plastik chiqim ishlashda davom etadi.</span>
           </div>
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={isCashless} onChange={(e) => setIsCashless(e.target.checked)}
-              className="w-4 h-4 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500" />
-            <span className="text-sm text-slate-700">Plastik chiqim (eski usul)</span>
+              className="w-4 h-4 rounded border-stone-300 dark:border-slate-600 text-emerald-600 dark:text-emerald-400 focus:ring-emerald-500" />
+            <span className="text-sm text-slate-700 dark:text-slate-300 dark:text-slate-600">Plastik chiqim (eski usul)</span>
           </label>
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={trackPayee} onChange={(e) => setTrackPayee(e.target.checked)}
-              className="w-4 h-4 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500" />
-            <span className="text-sm text-slate-700">Kim olganini hisobla (oylik kabi)</span>
+              className="w-4 h-4 rounded border-stone-300 dark:border-slate-600 text-emerald-600 dark:text-emerald-400 focus:ring-emerald-500" />
+            <span className="text-sm text-slate-700 dark:text-slate-300 dark:text-slate-600">Kim olganini hisobla (oylik kabi)</span>
           </label>
         </>
       )}
 
       <div className="grid grid-cols-2 gap-2 pt-1">
-        <button onClick={onCancel} className="bg-stone-200 hover:bg-stone-300 text-slate-700 font-semibold py-2 rounded-lg text-sm">Bekor</button>
+        <button onClick={onCancel} className="bg-stone-200 dark:bg-slate-700 hover:bg-stone-300 dark:bg-slate-600 text-slate-700 dark:text-slate-300 dark:text-slate-600 font-semibold py-2 rounded-lg text-sm">Bekor</button>
         <button onClick={submit} className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2 rounded-lg text-sm">Saqlash</button>
       </div>
     </div>
@@ -3328,20 +3530,20 @@ function WorkersSection({ workers, transactions, workerByName, onAdd, onUpdate, 
       </button>
 
       {showForm && (
-        <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
           <WorkerForm onSubmit={(data) => { onAdd(data); setShowForm(false); }} onCancel={() => setShowForm(false)} />
         </div>
       )}
 
-      <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-[11px] text-amber-900 flex items-start gap-2">
+      <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2 text-[11px] text-amber-900 dark:text-amber-100 flex items-start gap-2">
         <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
         <span>Ishchilarni qo'shganingizdan keyin <strong>Chiqim</strong> tabida "Ishchilar oyligi" bo'limida ularning ismi avtomatik tanlanadi. Ism o'zgartirilsa ham, ID orqali statistika saqlanadi.</span>
       </div>
 
-      {sorted.length === 0 && <div className="text-center py-8 text-slate-400 text-sm">Hali ishchi qo'shilmagan</div>}
+      {sorted.length === 0 && <div className="text-center py-8 text-slate-400 dark:text-slate-500 text-sm">Hali ishchi qo'shilmagan</div>}
 
       {sorted.map(w => (
-        <div key={w.id} className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+        <div key={w.id} className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
           {editingId === w.id ? (
             <WorkerForm initial={w}
               onSubmit={(data) => { onUpdate(w.id, data); setEditingId(null); }}
@@ -3350,25 +3552,25 @@ function WorkersSection({ workers, transactions, workerByName, onAdd, onUpdate, 
             <div className="p-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-base font-bold text-amber-800">{w.name.charAt(0).toUpperCase()}</span>
+                  <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/50 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-base font-bold text-amber-800 dark:text-amber-200">{w.name.charAt(0).toUpperCase()}</span>
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      {w.code && <span className="text-[10px] bg-stone-200 text-stone-700 font-mono px-1.5 py-0.5 rounded font-bold">{w.code}</span>}
-                      <p className="text-sm font-semibold text-slate-900 truncate">{w.name}</p>
-                      {!w.active && <span className="text-[9px] bg-stone-200 text-stone-600 px-1.5 py-0.5 rounded font-bold">FAOL EMAS</span>}
+                      {w.code && <span className="text-[10px] bg-stone-200 dark:bg-slate-700 text-stone-700 font-mono px-1.5 py-0.5 rounded font-bold">{w.code}</span>}
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{w.name}</p>
+                      {!w.active && <span className="text-[9px] bg-stone-200 dark:bg-slate-700 text-stone-600 px-1.5 py-0.5 rounded font-bold">FAOL EMAS</span>}
                     </div>
-                    {w.position && <p className="text-[11px] text-slate-500 truncate">{w.position}</p>}
+                    {w.position && <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{w.position}</p>}
                   </div>
                 </div>
                 <div className="flex flex-col gap-1.5 flex-shrink-0">
-                  <button onClick={() => setEditingId(w.id)} className="p-2 text-slate-500 hover:bg-stone-100 rounded-lg"><Edit3 className="w-4 h-4" /></button>
-                  <button onClick={() => onDelete(w.id)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                  <button onClick={() => setEditingId(w.id)} className="p-2 text-slate-500 dark:text-slate-400 hover:bg-stone-100 dark:hover:bg-slate-700 dark:bg-slate-800 rounded-lg"><Edit3 className="w-4 h-4" /></button>
+                  <button onClick={() => onDelete(w.id)} className="p-2 text-rose-500 hover:bg-rose-50 dark:bg-rose-900/30 rounded-lg"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
               <button onClick={() => setHistoryFor(historyFor === w.id ? null : w.id)}
-                className="w-full mt-3 bg-stone-50 hover:bg-stone-100 border border-stone-200 text-slate-700 font-semibold py-2 rounded-lg text-xs flex items-center justify-center gap-2">
+                className="w-full mt-3 bg-stone-50 dark:bg-slate-900 hover:bg-stone-100 dark:hover:bg-slate-700 dark:bg-slate-800 border border-stone-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 dark:text-slate-600 font-semibold py-2 rounded-lg text-xs flex items-center justify-center gap-2">
                 <CalendarIcon className="w-3.5 h-3.5" />
                 {historyFor === w.id ? 'Tarixni yashirish' : "Oylik tarixini ko'rish"}
               </button>
@@ -3399,35 +3601,35 @@ function WorkerForm({ initial, onSubmit, onCancel }) {
 
   return (
     <div className="p-4 space-y-3">
-      <p className="text-sm font-semibold text-slate-900">{initial ? "Ishchini tahrirlash" : "Yangi ishchi"}</p>
+      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{initial ? "Ishchini tahrirlash" : "Yangi ishchi"}</p>
       <div className="grid grid-cols-3 gap-2">
         <label className="block">
-          <span className="text-[10px] font-semibold text-slate-600 uppercase">ID / Kod</span>
+          <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 uppercase">ID / Kod</span>
           <input type="text" value={code} onChange={(e) => setCode(e.target.value)} placeholder="W001"
             onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-            className="w-full mt-1 px-2 py-2 border border-stone-300 rounded-lg text-sm font-mono text-center focus:border-emerald-600 outline-none" />
+            className="w-full mt-1 px-2 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm font-mono text-center focus:border-emerald-600 outline-none" />
         </label>
         <label className="block col-span-2">
-          <span className="text-[10px] font-semibold text-slate-600 uppercase">Ism familiya</span>
+          <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 uppercase">Ism familiya</span>
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Aziz Karimov"
             onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-            className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-emerald-600 outline-none" />
+            className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm focus:border-emerald-600 outline-none" />
         </label>
       </div>
-      <p className="text-[10px] text-slate-500 -mt-1">ID ixtiyoriy — agar ko'p ishchi bo'lsa, ajratib ko'rish uchun (W001, ofitsant-1 va h.k.)</p>
+      <p className="text-[10px] text-slate-500 dark:text-slate-400 -mt-1">ID ixtiyoriy — agar ko'p ishchi bo'lsa, ajratib ko'rish uchun (W001, ofitsant-1 va h.k.)</p>
       <label className="block">
-        <span className="text-[11px] font-semibold text-slate-600 uppercase">Lavozim (ixtiyoriy)</span>
+        <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase">Lavozim (ixtiyoriy)</span>
         <input type="text" value={position} onChange={(e) => setPosition(e.target.value)} placeholder="Oshpaz / Ofitsiant"
           onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-          className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-emerald-600 outline-none" />
+          className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm focus:border-emerald-600 outline-none" />
       </label>
       <label className="flex items-center gap-2 cursor-pointer">
         <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)}
-          className="w-4 h-4 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500" />
-        <span className="text-sm text-slate-700">Hozir ishlayapti (faol)</span>
+          className="w-4 h-4 rounded border-stone-300 dark:border-slate-600 text-emerald-600 dark:text-emerald-400 focus:ring-emerald-500" />
+        <span className="text-sm text-slate-700 dark:text-slate-300 dark:text-slate-600">Hozir ishlayapti (faol)</span>
       </label>
       <div className="grid grid-cols-2 gap-2 pt-1">
-        <button onClick={onCancel} className="bg-stone-200 hover:bg-stone-300 text-slate-700 font-semibold py-2 rounded-lg text-sm">Bekor</button>
+        <button onClick={onCancel} className="bg-stone-200 dark:bg-slate-700 hover:bg-stone-300 dark:bg-slate-600 text-slate-700 dark:text-slate-300 dark:text-slate-600 font-semibold py-2 rounded-lg text-sm">Bekor</button>
         <button onClick={submit} className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2 rounded-lg text-sm">Saqlash</button>
       </div>
     </div>
@@ -3470,35 +3672,35 @@ function WorkerHistory({ worker, transactions, workerByName = {} }) {
   });
 
   return (
-    <div className="mt-3 bg-stone-50 border border-stone-200 rounded-lg p-3 space-y-3">
+    <div className="mt-3 bg-stone-50 dark:bg-slate-900 border border-stone-200 dark:border-slate-700 rounded-lg p-3 space-y-3">
       <div className="grid grid-cols-2 gap-2">
-        <div className="bg-white rounded-lg p-2.5 border border-stone-200">
-          <p className="text-[10px] text-slate-500 uppercase font-bold">Bu oy jami</p>
-          <p className="text-sm font-bold text-amber-800">{fmtSom(monthTotal)}</p>
-          <p className="text-[10px] text-slate-500">{monthPayments.length} marta</p>
+        <div className="bg-white dark:bg-slate-800 rounded-lg p-2.5 border border-stone-200 dark:border-slate-700">
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-bold">Bu oy jami</p>
+          <p className="text-sm font-bold text-amber-800 dark:text-amber-200">{fmtSom(monthTotal)}</p>
+          <p className="text-[10px] text-slate-500 dark:text-slate-400">{monthPayments.length} marta</p>
         </div>
-        <div className="bg-white rounded-lg p-2.5 border border-stone-200">
-          <p className="text-[10px] text-slate-500 uppercase font-bold">Hammasi jami</p>
-          <p className="text-sm font-bold text-emerald-800">{fmtSom(allTimeTotal)}</p>
-          <p className="text-[10px] text-slate-500">{allPayments.length} marta</p>
+        <div className="bg-white dark:bg-slate-800 rounded-lg p-2.5 border border-stone-200 dark:border-slate-700">
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-bold">Hammasi jami</p>
+          <p className="text-sm font-bold text-emerald-800 dark:text-emerald-200">{fmtSom(allTimeTotal)}</p>
+          <p className="text-[10px] text-slate-500 dark:text-slate-400">{allPayments.length} marta</p>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
         <select value={month} onChange={(e) => setMonth(Number(e.target.value))}
-          className="px-2 py-1.5 border border-stone-300 rounded-lg text-xs bg-white">
+          className="px-2 py-1.5 border border-stone-300 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-800">
           {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
         </select>
         <select value={year} onChange={(e) => setYear(Number(e.target.value))}
-          className="px-2 py-1.5 border border-stone-300 rounded-lg text-xs bg-white">
+          className="px-2 py-1.5 border border-stone-300 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-800">
           {[today.getFullYear() - 2, today.getFullYear() - 1, today.getFullYear(), today.getFullYear() + 1].map(y =>
             <option key={y} value={y}>{y}</option>)}
         </select>
       </div>
 
-      <div className="bg-white rounded-lg border border-stone-200 p-2">
+      <div className="bg-white dark:bg-slate-800 rounded-lg border border-stone-200 dark:border-slate-700 p-2">
         <div className="grid grid-cols-7 gap-0.5 text-center mb-1">
-          {['Du','Se','Ch','Pa','Ju','Sh','Ya'].map(d => <div key={d} className="text-[9px] font-bold text-slate-500 py-1">{d}</div>)}
+          {['Du','Se','Ch','Pa','Ju','Sh','Ya'].map(d => <div key={d} className="text-[9px] font-bold text-slate-500 dark:text-slate-400 py-1">{d}</div>)}
         </div>
         <div className="grid grid-cols-7 gap-0.5">
           {Array.from({ length: offset }).map((_, i) => <div key={`o${i}`} />)}
@@ -3507,10 +3709,10 @@ function WorkerHistory({ worker, transactions, workerByName = {} }) {
             const amount = dayMap[day];
             return (
               <div key={day} className={`aspect-square rounded flex flex-col items-center justify-center text-center p-0.5 ${
-                amount ? 'bg-amber-100 border border-amber-300' : 'bg-stone-50'
+                amount ? 'bg-amber-100 dark:bg-amber-900/50 border border-amber-300 dark:border-amber-700' : 'bg-stone-50 dark:bg-slate-900'
               }`}>
-                <span className={`text-[10px] font-bold ${amount ? 'text-amber-900' : 'text-slate-400'}`}>{day}</span>
-                {amount && <span className="text-[8px] text-amber-700 leading-none mt-0.5">{Math.round(amount/1000)}k</span>}
+                <span className={`text-[10px] font-bold ${amount ? 'text-amber-900 dark:text-amber-100' : 'text-slate-400 dark:text-slate-500'}`}>{day}</span>
+                {amount && <span className="text-[8px] text-amber-700 dark:text-amber-300 leading-none mt-0.5">{Math.round(amount/1000)}k</span>}
               </div>
             );
           })}
@@ -3519,17 +3721,17 @@ function WorkerHistory({ worker, transactions, workerByName = {} }) {
 
       {monthPayments.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-[11px] font-semibold text-slate-500 uppercase">Bu oydagi to'lovlar</p>
+          <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase">Bu oydagi to'lovlar</p>
           {monthPayments.map(t => (
-            <div key={t.id} className="bg-white rounded-lg border border-stone-200 px-3 py-2 flex items-center justify-between">
+            <div key={t.id} className="bg-white dark:bg-slate-800 rounded-lg border border-stone-200 dark:border-slate-700 px-3 py-2 flex items-center justify-between">
               <div className="text-xs">
-                <p className="font-semibold text-slate-900">{formatUzbDate(t.date)}</p>
-                {t.note && <p className="text-[11px] text-slate-500">{t.note}</p>}
+                <p className="font-semibold text-slate-900 dark:text-slate-100">{formatUzbDate(t.date)}</p>
+                {t.note && <p className="text-[11px] text-slate-500 dark:text-slate-400">{t.note}</p>}
                 {!t.payeeWorkerId && (
-                  <p className="text-[10px] text-amber-600">⚠ Eski yozuv (ism orqali bog'langan)</p>
+                  <p className="text-[10px] text-amber-600 dark:text-amber-400">⚠ Eski yozuv (ism orqali bog'langan)</p>
                 )}
               </div>
-              <p className="text-sm font-bold text-amber-800">{fmtSom(t.amount)}</p>
+              <p className="text-sm font-bold text-amber-800 dark:text-amber-200">{fmtSom(t.amount)}</p>
             </div>
           ))}
         </div>
@@ -3597,53 +3799,53 @@ function TelegramSection({ config, onSave, onToast }) {
 
   return (
     <>
-      <div className="bg-white rounded-xl border border-stone-200 p-4 space-y-3">
-        <p className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-          <Send className="w-4 h-4 text-blue-700" />Telegram bot tokeni
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 p-4 space-y-3">
+        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+          <Send className="w-4 h-4 text-blue-700 dark:text-blue-300" />Telegram bot tokeni
         </p>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-[11px] text-blue-900 flex items-start gap-2">
+        <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2 text-[11px] text-blue-900 dark:text-blue-100 flex items-start gap-2">
           <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
           <div>
             <p>Telegramda <strong>@BotFather</strong>ni toping va <strong>/newbot</strong> buyrug'i bilan bot yarating. Token shu joyda chiqadi.</p>
           </div>
         </div>
         <label className="block">
-          <span className="text-[11px] font-semibold text-slate-600 uppercase">Bot tokeni</span>
+          <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase">Bot tokeni</span>
           <div className="relative mt-1">
             <input type={showToken ? "text" : "password"} value={botToken}
               onChange={(e) => { setBotToken(e.target.value); setTokenDirty(true); }}
               placeholder="123456789:ABC..."
-              className="w-full px-3 py-2 pr-10 border border-stone-300 rounded-lg text-sm font-mono focus:border-emerald-600 outline-none" />
-            <button onClick={() => setShowToken(!showToken)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400">
+              className="w-full px-3 py-2 pr-10 border border-stone-300 dark:border-slate-600 rounded-lg text-sm font-mono focus:border-emerald-600 outline-none" />
+            <button onClick={() => setShowToken(!showToken)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 dark:text-slate-500">
               {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
         </label>
         {botInfo && (
-          <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-xs flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+          <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg px-3 py-2 text-xs flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
             <div>
-              <p className="font-semibold text-emerald-900">@{botInfo.username}</p>
-              <p className="text-emerald-700 text-[11px]">{botInfo.first_name}</p>
+              <p className="font-semibold text-emerald-900 dark:text-emerald-100">@{botInfo.username}</p>
+              <p className="text-emerald-700 dark:text-emerald-300 text-[11px]">{botInfo.first_name}</p>
             </div>
           </div>
         )}
         <div className="grid grid-cols-2 gap-2">
           <button onClick={testToken} disabled={!botToken || testing}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-stone-300 text-white font-semibold py-2 rounded-lg text-sm flex items-center justify-center gap-2">
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-stone-300 dark:bg-slate-600 text-white font-semibold py-2 rounded-lg text-sm flex items-center justify-center gap-2">
             {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
             Tekshirish
           </button>
           <button onClick={saveToken} disabled={!tokenDirty}
-            className="bg-emerald-700 hover:bg-emerald-800 disabled:bg-stone-300 text-white font-semibold py-2 rounded-lg text-sm flex items-center justify-center gap-2">
+            className="bg-emerald-700 hover:bg-emerald-800 disabled:bg-stone-300 dark:bg-slate-600 text-white font-semibold py-2 rounded-lg text-sm flex items-center justify-center gap-2">
             <Save className="w-4 h-4" />Saqlash
           </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-        <div className="bg-stone-50 px-4 py-2.5 border-b border-stone-200 flex items-center justify-between">
-          <p className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
+        <div className="bg-stone-50 dark:bg-slate-900 px-4 py-2.5 border-b border-stone-200 dark:border-slate-700 flex items-center justify-between">
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <Users className="w-4 h-4" />Qabul qiluvchilar
           </p>
           <button onClick={() => { setShowRecipientForm(!showRecipientForm); setEditingId(null); }}
@@ -3654,16 +3856,16 @@ function TelegramSection({ config, onSave, onToast }) {
         </div>
 
         {showRecipientForm && (
-          <div className="border-b border-stone-200">
+          <div className="border-b border-stone-200 dark:border-slate-700">
             <RecipientForm onSubmit={addRecipient} onCancel={() => setShowRecipientForm(false)} />
           </div>
         )}
 
         {(config.recipients || []).length === 0 && !showRecipientForm && (
-          <div className="p-4 text-center text-sm text-slate-400">Hali qabul qiluvchi qo'shilmagan</div>
+          <div className="p-4 text-center text-sm text-slate-400 dark:text-slate-500">Hali qabul qiluvchi qo'shilmagan</div>
         )}
 
-        <div className="divide-y divide-stone-100">
+        <div className="divide-y divide-stone-100 dark:divide-slate-700 dark:divide-slate-800">
           {(config.recipients || []).map(r => (
             <div key={r.id}>
               {editingId === r.id ? (
@@ -3674,19 +3876,19 @@ function TelegramSection({ config, onSave, onToast }) {
                 <div className="px-4 py-3 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     <button onClick={() => toggleRecipient(r.id)}
-                      className={`w-10 h-6 rounded-full relative flex-shrink-0 transition-colors ${r.enabled !== false ? 'bg-emerald-600' : 'bg-stone-300'}`}>
-                      <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-all ${r.enabled !== false ? 'right-0.5' : 'left-0.5'}`} />
+                      className={`w-10 h-6 rounded-full relative flex-shrink-0 transition-colors ${r.enabled !== false ? 'bg-emerald-600' : 'bg-stone-300 dark:bg-slate-600'}`}>
+                      <div className={`absolute top-0.5 w-5 h-5 bg-white dark:bg-slate-800 rounded-full transition-all ${r.enabled !== false ? 'right-0.5' : 'left-0.5'}`} />
                     </button>
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-900 truncate">{r.name}</p>
-                      <p className="text-[11px] text-slate-500">
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{r.name}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
                         {REPORT_TYPE_LABELS[r.reportType] || r.reportType}
                       </p>
                     </div>
                   </div>
                   <div className="flex gap-1 flex-shrink-0">
-                    <button onClick={() => setEditingId(r.id)} className="p-2 text-slate-500 hover:bg-stone-100 rounded-lg"><Edit3 className="w-4 h-4" /></button>
-                    <button onClick={() => deleteRecipient(r.id)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                    <button onClick={() => setEditingId(r.id)} className="p-2 text-slate-500 dark:text-slate-400 hover:bg-stone-100 dark:hover:bg-slate-700 dark:bg-slate-800 rounded-lg"><Edit3 className="w-4 h-4" /></button>
+                    <button onClick={() => deleteRecipient(r.id)} className="p-2 text-rose-500 hover:bg-rose-50 dark:bg-rose-900/30 rounded-lg"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 </div>
               )}
@@ -3709,9 +3911,9 @@ function RecipientForm({ initial, onSubmit, onCancel }) {
   }
 
   return (
-    <div className="p-4 space-y-3 bg-stone-50">
-      <p className="text-sm font-semibold text-slate-900">{initial ? 'Tahrirlash' : "Yangi qabul qiluvchi"}</p>
-      <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-[11px] text-amber-900 flex items-start gap-2">
+    <div className="p-4 space-y-3 bg-stone-50 dark:bg-slate-900">
+      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{initial ? 'Tahrirlash' : "Yangi qabul qiluvchi"}</p>
+      <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2 text-[11px] text-amber-900 dark:text-amber-100 flex items-start gap-2">
         <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
         <div>
           Telegramda <strong>@userinfobot</strong>ga yozing — u sizga Chat ID raqamingizni beradi.
@@ -3719,21 +3921,21 @@ function RecipientForm({ initial, onSubmit, onCancel }) {
         </div>
       </div>
       <label className="block">
-        <span className="text-[11px] font-semibold text-slate-600 uppercase">Nomi</span>
+        <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase">Nomi</span>
         <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Aka / Hisobchi"
           onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-          className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:border-emerald-600 outline-none" />
+          className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm focus:border-emerald-600 outline-none" />
       </label>
       <label className="block">
-        <span className="text-[11px] font-semibold text-slate-600 uppercase">Chat ID</span>
+        <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase">Chat ID</span>
         <input type="text" inputMode="numeric" value={chatId} onChange={(e) => setChatId(e.target.value)} placeholder="123456789"
           onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-          className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm font-mono focus:border-emerald-600 outline-none" />
+          className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm font-mono focus:border-emerald-600 outline-none" />
       </label>
       <label className="block">
-        <span className="text-[11px] font-semibold text-slate-600 uppercase">Hisobot turi</span>
+        <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase">Hisobot turi</span>
         <select value={reportType} onChange={(e) => setReportType(e.target.value)}
-          className="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg text-sm bg-white focus:border-emerald-600 outline-none">
+          className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 focus:border-emerald-600 outline-none">
           <optgroup label="Suvlar">
             <option value="drinks">🥤 Suvlar — qisqa</option>
             <option value="drinks_detailed">🥤 Suvlar — batafsil (har bir suv)</option>
@@ -3748,7 +3950,7 @@ function RecipientForm({ initial, onSubmit, onCancel }) {
         </select>
       </label>
       <div className="grid grid-cols-2 gap-2 pt-1">
-        <button onClick={onCancel} className="bg-stone-200 hover:bg-stone-300 text-slate-700 font-semibold py-2 rounded-lg text-sm">Bekor</button>
+        <button onClick={onCancel} className="bg-stone-200 dark:bg-slate-700 hover:bg-stone-300 dark:bg-slate-600 text-slate-700 dark:text-slate-300 dark:text-slate-600 font-semibold py-2 rounded-lg text-sm">Bekor</button>
         <button onClick={submit} className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2 rounded-lg text-sm">Saqlash</button>
       </div>
     </div>
