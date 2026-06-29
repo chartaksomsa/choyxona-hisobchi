@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { getStoredTheme, setStoredTheme, applyTheme } from './theme.js';
 import {
-  useCloud, supabase, setUserId, loadAll, sGet, sSet,
+  useCloud, supabase, setUserId, loadAll, sGet, sSet, cacheGet,
   txInsert, txDelete,
   hasLocalData, migrateLocalToCloud, reloadFromCloud,
   signUp, signIn, signOut, getSession, onAuthChange,
@@ -135,23 +135,38 @@ async function tgGetMe(token) {
 export default function App() {
   const [session, setSession] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [userReady, setUserReady] = useState(false);
 
   useEffect(() => {
     if (!useCloud) {
       setAuthChecked(true);
+      setUserReady(true);
       return;
     }
+    let mounted = true;
     getSession().then(s => {
+      if (!mounted) return;
       setSession(s);
-      if (s) setUserId(s.user.id);
+      if (s) {
+        setUserId(s.user.id);
+        setUserReady(true);
+      }
       setAuthChecked(true);
     });
     const unsub = onAuthChange((s) => {
+      if (!mounted) return;
+      // Faqat haqiqiy kirish/chiqishga e'tibor beramiz.
+      // TOKEN_REFRESHED kabi hodisalar userId'ni o'zgartirmaydi (setUserId o'zi tekshiradi).
       setSession(s);
-      if (s) setUserId(s.user.id);
-      else setUserId(null);
+      if (s) {
+        setUserId(s.user.id);
+        setUserReady(true);
+      } else {
+        setUserId(null);
+        setUserReady(false);
+      }
     });
-    return unsub;
+    return () => { mounted = false; unsub(); };
   }, []);
 
   if (!authChecked) {
@@ -164,7 +179,17 @@ export default function App() {
 
   if (useCloud && !session) return <AuthScreen />;
 
-  return <ChoyxonaHisobchi userEmail={session?.user?.email} />;
+  // userId tayyor bo'lmaguncha kutamiz (race condition'ni oldini oladi)
+  if (useCloud && !userReady) {
+    return (
+      <div className="min-h-screen bg-stone-50 dark:bg-slate-900 flex items-center justify-center">
+        <Coffee className="w-12 h-12 text-emerald-700 dark:text-emerald-300 animate-pulse" />
+      </div>
+    );
+  }
+
+  // key={session.user.id} — foydalanuvchi o'zgarsa komponent to'liq qayta mount bo'ladi
+  return <ChoyxonaHisobchi key={useCloud ? session?.user?.id : 'local'} userEmail={session?.user?.email} />;
 }
 
 // ============================================================
@@ -280,6 +305,7 @@ function ChoyxonaHisobchi({ userEmail }) {
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [saveHealth, setSaveHealth] = useState(null); // null=tekshirilmagan, true=ok, {error} = muammo
   // Dark mode — kunduzgi/tungi rejim, localStorage'da saqlanadi
   const [theme, setTheme] = useState(() => getStoredTheme());
   useEffect(() => {
@@ -336,49 +362,64 @@ function ChoyxonaHisobchi({ userEmail }) {
     return () => clearInterval(id);
   }, []);
 
-  // visibilitychange — refresh from cloud when tab regains focus
+  // visibilitychange — tab fokusga qaytganda buluddan yangilash
   useEffect(() => {
     if (!useCloud) return;
     const handler = async () => {
       if (document.visibilityState === 'visible') {
         try {
-          await reloadFromCloud();
-          await loadStateFromCache();
+          // MUHIM: avval navbatdagi yozuvlarni yuboramiz,
+          // KEYIN buluddan o'qiymiz (aks holda eski ma'lumot yangini bosadi)
           await flushQueue();
-        } catch {}
+          await reloadFromCloud();
+          loadStateFromCache();
+        } catch (e) {
+          console.warn('visibility refresh:', e.message);
+        }
       }
     };
     document.addEventListener('visibilitychange', handler);
     return () => document.removeEventListener('visibilitychange', handler);
   }, []);
 
-  async function loadStateFromCache() {
-    let cats = await sGet('categories', null);
-    if (!cats) {
-      cats = DEFAULT_CATEGORIES;
-      await sSet('categories', cats);
-    }
-    setCategories(cats);
-    setTransactions(await sGet('transactions', []));
-    setDrinks(await sGet('drinks', []));
-    setDrinkDaily(await sGet('drink_daily', {}));
-    setCashRegister(await sGet('cash_register', {}));
-    setTgConfig(await sGet('tg_config', { botToken: '', recipients: [] }));
-    setWorkers(await sGet('workers', []));
-    setDebts(await sGet('debts', []));
-    setAuditLog(await sGet('audit_log', []));
+  // Cache'dan UI state'ga o'qish — HECH QACHON bu yerda yozmaymiz
+  // (avval DEFAULT_CATEGORIES'ni yozish bug'i ma'lumotni o'chirardi)
+  function loadStateFromCache() {
+    const cats = cacheGet('categories', null);
+    setCategories(cats || DEFAULT_CATEGORIES);
+    setTransactions(cacheGet('transactions', []));
+    setDrinks(cacheGet('drinks', []));
+    setDrinkDaily(cacheGet('drink_daily', {}));
+    setCashRegister(cacheGet('cash_register', {}));
+    setTgConfig(cacheGet('tg_config', { botToken: '', recipients: [] }));
+    setWorkers(cacheGet('workers', []));
+    setDebts(cacheGet('debts', []));
+    setAuditLog(cacheGet('audit_log', []));
   }
 
   async function initialize() {
     try {
       await loadAll();
+
+      // Kategoriyalar yo'q bo'lsa (haqiqatan birinchi marta) — DEFAULT'ni bir marta yozamiz.
+      // loadAll tugagandan keyin, cache to'la — shuning uchun bu xavfsiz.
+      const existingCats = cacheGet('categories', null);
+      if (!existingCats) {
+        await sSet('categories', DEFAULT_CATEGORIES);
+      }
+
       if (useCloud && hasLocalData()) {
-        const cloudHasData = await sGet('transactions', []);
+        const cloudHasData = cacheGet('transactions', []);
         if (!cloudHasData || cloudHasData.length === 0) {
           setMigrationOffer(true);
         }
       }
-      await loadStateFromCache();
+      loadStateFromCache();
+
+      // Avtomatik saqlash sog'ligini tekshirish (cloud rejimida)
+      if (useCloud) {
+        checkSaveHealth();
+      }
     } catch (e) {
       console.error('Init error:', e);
       showToast(`Yuklash xatosi: ${e.message}`, 'error');
@@ -387,10 +428,29 @@ function ChoyxonaHisobchi({ userEmail }) {
     }
   }
 
+  // Saqlash ishlayotganini jim tekshiradi — muammo bo'lsa banner ko'rsatadi
+  async function checkSaveHealth() {
+    try {
+      const results = await runDiagnostics();
+      const failed = results.find(r => !r.ok && (
+        r.name.includes('app_transactions') ||
+        r.name.includes('audit_log') ||
+        r.name.includes('app_data yozish')
+      ));
+      if (failed) {
+        setSaveHealth({ error: `${failed.name}: ${failed.detail}` });
+      } else {
+        setSaveHealth(true);
+      }
+    } catch (_) {
+      // tekshirish o'zi xato bersa, jim qolamiz
+    }
+  }
+
   async function doMigration() {
     try {
       const r = await migrateLocalToCloud();
-      await loadStateFromCache();
+      loadStateFromCache();
       showToast(`${r.migrated} ta ma'lumot bulutga ko'chirildi`);
     } catch (e) {
       showToast(`Xato: ${e.message}`, 'error');
@@ -925,6 +985,24 @@ function ChoyxonaHisobchi({ userEmail }) {
           </div>
         )}
       </header>
+
+      {saveHealth && saveHealth.error && (
+        <div className="bg-rose-100 dark:bg-rose-900/50 border-b-2 border-rose-400 dark:border-rose-700 px-4 py-3">
+          <div className="max-w-4xl mx-auto flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-rose-700 dark:text-rose-300 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-rose-900 dark:text-rose-100">⚠️ Ma'lumotlar saqlanmayapti!</p>
+              <p className="text-xs text-rose-800 dark:text-rose-200 mt-0.5">
+                Bazada muammo: {saveHealth.error}
+              </p>
+              <p className="text-xs text-rose-800 dark:text-rose-200 mt-1">
+                <strong>Yechim:</strong> Supabase → SQL Editor'da <code>supabase-schema.sql</code> ni qayta ishga tushiring. So'ng bu sahifani yangilang.
+              </p>
+            </div>
+            <button onClick={() => setSaveHealth(true)} className="text-rose-700 dark:text-rose-300 p-1 flex-shrink-0"><X className="w-4 h-4" /></button>
+          </div>
+        </div>
+      )}
 
       {migrationOffer && (
         <div className="bg-amber-100 dark:bg-amber-900/50 border-b border-amber-200 dark:border-amber-800 px-4 py-3">

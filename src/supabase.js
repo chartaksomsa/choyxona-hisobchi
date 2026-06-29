@@ -158,6 +158,14 @@ export async function sGet(key, fallback) {
   return (v === null || v === undefined) ? fallback : v;
 }
 
+// Sinxron cache o'qish — loadAll'ni QAYTA CHAQIRMAYDI.
+// Faqat allaqachon yuklangan cache'dan o'qiydi (UI yangilash uchun xavfsiz).
+export function cacheGet(key, fallback) {
+  if (key === 'transactions') return txCache;
+  const v = cache[key];
+  return (v === null || v === undefined) ? fallback : v;
+}
+
 export async function sSet(key, value) {
   if (key === 'transactions') {
     throw new Error('Use txInsert/txUpdate/txDelete for transactions');
@@ -534,6 +542,7 @@ export async function migrateLocalToCloud() {
   }
 
   // 2) transactions → normalized table
+  let txMigrationOk = true;
   const txRaw = localStorage.getItem(LS_PREFIX + 'transactions');
   if (txRaw) {
     try {
@@ -550,12 +559,18 @@ export async function migrateLocalToCloud() {
         }
         migrated++;
       }
-    } catch (e) { console.warn('tx migration:', e.message); }
+    } catch (e) {
+      // MUHIM: migration xato bersa, localStorage'ni O'CHIRMAYMIZ
+      txMigrationOk = false;
+      throw new Error(`Tranzaksiyalarni ko'chirishda xato: ${e.message}. Ma'lumotlar saqlanib qoldi.`);
+    }
   }
 
-  // Cleanup localStorage on success
-  for (const k of JSONB_KEYS) localStorage.removeItem(LS_PREFIX + k);
-  localStorage.removeItem(LS_PREFIX + 'transactions');
+  // Cleanup localStorage — FAQAT hammasi muvaffaqiyatli bo'lsa
+  if (txMigrationOk) {
+    for (const k of JSONB_KEYS) localStorage.removeItem(LS_PREFIX + k);
+    localStorage.removeItem(LS_PREFIX + 'transactions');
+  }
 
   // Update caches
   for (const k of JSONB_KEYS) {
