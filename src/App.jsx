@@ -3883,6 +3883,9 @@ function TelegramSection({ config, onSave, onToast }) {
                       <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{r.name}</p>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400">
                         {REPORT_TYPE_LABELS[r.reportType] || r.reportType}
+                        {r.autoSchedule?.enabled && (
+                          <span className="ml-1.5 text-emerald-700 dark:text-emerald-300 font-semibold">⏰ {r.autoSchedule.time}</span>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -3896,7 +3899,104 @@ function TelegramSection({ config, onSave, onToast }) {
           ))}
         </div>
       </div>
+
+      <WeatherConfigSection config={config} onSave={onSave} onToast={onToast} />
     </>
+  );
+}
+
+// ============================================================
+// WEATHER CONFIG — somsa kuni uchun ob-havo ogohlantirish (#7)
+// ============================================================
+function WeatherConfigSection({ config, onSave, onToast }) {
+  const w = config.weather || {};
+  const [enabled, setEnabled] = useState(w.enabled || false);
+  const [city, setCity] = useState(w.city || 'Tashkent');
+  const [chatId, setChatId] = useState(w.chatId || '');
+  const [dirty, setDirty] = useState(false);
+
+  function update(field, value) {
+    setDirty(true);
+    if (field === 'enabled') setEnabled(value);
+    if (field === 'city') setCity(value);
+    if (field === 'chatId') setChatId(value);
+  }
+
+  async function save() {
+    await onSave({
+      ...config,
+      weather: {
+        enabled,
+        city: city.trim() || 'Tashkent',
+        chatId: chatId.trim(),
+      }
+    });
+    setDirty(false);
+    onToast("Ob-havo sozlamalari saqlandi");
+  }
+
+  // Recipient list to pick chatId from
+  const recipients = config.recipients || [];
+
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
+      <div className="bg-blue-50 dark:bg-blue-900/30 px-4 py-2.5 border-b border-stone-200 dark:border-slate-700 flex items-center gap-2">
+        <Info className="w-4 h-4 text-blue-700 dark:text-blue-300" />
+        <p className="text-sm font-semibold text-blue-900 dark:text-blue-100 flex-1">Ob-havo ogohlantirish</p>
+      </div>
+      <div className="p-4 space-y-3">
+        <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2 text-[11px] text-amber-900 dark:text-amber-100 flex items-start gap-2">
+          <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <span>
+            Somsa yopilgan kuni sotilishi kerak. Bu ogohlantirishni yoqsangiz:<br/>
+            • Ertalab 08:00 — bugun havo yomon bo'lsa ogohlantiradi<br/>
+            • Kechqurun 18:00 — yarim tunda yoki ertaga havo to'satdan o'zgarsa ogohlantiradi<br/>
+            (Cloudflare Worker o'rnatilgan bo'lishi shart)
+          </span>
+        </div>
+
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" checked={enabled} onChange={(e) => update('enabled', e.target.checked)}
+            className="w-4 h-4 rounded border-stone-300 dark:border-slate-600 text-emerald-600 focus:ring-emerald-500" />
+          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Ob-havo ogohlantirishini yoqish</span>
+        </label>
+
+        {enabled && (
+          <>
+            <label className="block">
+              <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase">Shahar (lotin yozuvida)</span>
+              <input type="text" value={city} onChange={(e) => update('city', e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && dirty) save(); }}
+                placeholder="Tashkent / Samarkand / Bukhara"
+                className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm focus:border-emerald-600 outline-none" />
+            </label>
+
+            <label className="block">
+              <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase">Kimga yuborilsin (Chat ID)</span>
+              {recipients.length > 0 ? (
+                <select value={chatId} onChange={(e) => update('chatId', e.target.value)}
+                  className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 focus:border-emerald-600 outline-none">
+                  <option value="">— Tanlang —</option>
+                  {recipients.map(r => (
+                    <option key={r.id} value={r.chatId}>{r.name} ({r.chatId})</option>
+                  ))}
+                </select>
+              ) : (
+                <input type="text" inputMode="numeric" value={chatId} onChange={(e) => update('chatId', e.target.value)}
+                  placeholder="123456789" className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm font-mono focus:border-emerald-600 outline-none" />
+              )}
+            </label>
+          </>
+        )}
+
+        {dirty && (
+          <button onClick={save}
+            className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2 rounded-lg text-sm flex items-center justify-center gap-2">
+            <Save className="w-4 h-4" />Saqlash
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -3904,10 +4004,19 @@ function RecipientForm({ initial, onSubmit, onCancel }) {
   const [name, setName] = useState(initial?.name || '');
   const [chatId, setChatId] = useState(initial?.chatId || '');
   const [reportType, setReportType] = useState(initial?.reportType || 'owner');
+  // Avto-jadval — Cloudflare Worker ulansa ishlaydi
+  const [autoEnabled, setAutoEnabled] = useState(initial?.autoSchedule?.enabled || false);
+  const [autoTime, setAutoTime] = useState(initial?.autoSchedule?.time || '22:00');
 
   function submit() {
     if (!name.trim() || !chatId.trim()) return;
-    onSubmit({ name: name.trim(), chatId: chatId.trim(), reportType });
+    const data = {
+      name: name.trim(),
+      chatId: chatId.trim(),
+      reportType,
+      autoSchedule: { enabled: autoEnabled, time: autoTime },
+    };
+    onSubmit(data);
   }
 
   return (
@@ -3949,6 +4058,28 @@ function RecipientForm({ initial, onSubmit, onCancel }) {
           </optgroup>
         </select>
       </label>
+
+      {/* Avto-jadval (#7) */}
+      <div className="border-t border-stone-200 dark:border-slate-700 pt-3 space-y-2">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" checked={autoEnabled} onChange={(e) => setAutoEnabled(e.target.checked)}
+            className="w-4 h-4 rounded border-stone-300 dark:border-slate-600 text-emerald-600 focus:ring-emerald-500" />
+          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Avtomatik yuborish</span>
+        </label>
+        {autoEnabled && (
+          <>
+            <label className="block">
+              <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase">Qachon yuborilsin (Tashkent vaqti)</span>
+              <input type="time" value={autoTime} onChange={(e) => setAutoTime(e.target.value)}
+                className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 font-mono focus:border-emerald-600 outline-none" />
+            </label>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400">
+              Har kuni shu vaqtda hisobot avto-yuboriladi. Buning uchun Cloudflare Worker o'rnatilgan bo'lishi kerak (qo'llanma <code>cloudflare-worker/README.md</code> da).
+            </p>
+          </>
+        )}
+      </div>
+
       <div className="grid grid-cols-2 gap-2 pt-1">
         <button onClick={onCancel} className="bg-stone-200 dark:bg-slate-700 hover:bg-stone-300 dark:bg-slate-600 text-slate-700 dark:text-slate-300 dark:text-slate-600 font-semibold py-2 rounded-lg text-sm">Bekor</button>
         <button onClick={submit} className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2 rounded-lg text-sm">Saqlash</button>

@@ -1,29 +1,38 @@
-# Choyxona Hisobchi v4.4
+# Choyxona Hisobchi v4.5
 
 Mobil-birinchi cafe accounting PWA — React + Vite + Supabase + Tailwind.
 
-## v4.4 yangiliklari (Phase 2A)
+## v4.5 yangiliklari (Phase 2B)
 
-- **Dark mode** — kunduzgi/tungi rejim. Header'da quyosh/oy tugmasi orqali almashtiriladi. Tanlovingiz brauzerda saqlanadi (qayta ochganda eslab qoladi).
-- **Surib o'chirish** — tx ro'yxatda chap-o'ngga sudrab o'chirish. Telefonda tezroq.
-- **Tarix (audit log)** — Sozlama → Tarix tabida hamma o'zgarishlar ko'rinadi: tushum, chiqim, ishchi, qarz, bo'lim qo'shildi/o'chirildi/yangilandi. Oxirgi 500 yozuv saqlanadi. Filtrlash mumkin (Tx, Bo'lim, Ishchi, Qarz).
+**Telegram avto-jadval va ob-havo bot — Cloudflare Worker orqali**
 
-## Phase 2 da qolganlar (alohida sessiyalar)
+- **Avto-hisobotlar:** Sozlama → Telegram → har qabul qiluvchiga "Avtomatik yuborish" yoqing va vaqtni tanlang. Worker har daqiqa ishlaydi va belgilangan vaqtda hisobotni yuboradi.
 
-- ⏳ Telegram avto-jadval bo'yicha hisobot — Cloudflare Worker yoki Supabase Edge Function infra kerak
-- ⏳ Ob-havo bot — somsa kunlari uchun ogohlantirish (OpenWeatherMap API + cron)
-- ⏳ PWA push notification — VAPID keys + backend
-- ⏳ Sentry — account ochish + DSN
+- **Ob-havo ogohlantirishi:** Sozlama → Telegram → "Ob-havo ogohlantirish" yoqing, shaharingizni yozib qo'ying. Bot har kuni:
+  - Ertalab 08:00 — bugungi 12 soatlik prognozni tekshiradi (kuchli shamol, yomg'ir, qor, issiqlik)
+  - Kechqurun 18:00 — yarim tun va ertaga ertalabgi 18 soatlik prognozni tekshiradi (somsa **ertaga sotilishi kerak** bo'lgani uchun, kechki keskin o'zgarishlarni)
+  - Faqat haqiqiy ogohlantirish bor bo'lsa yuboradi (har kuni keraksiz xabar yo'q)
+
+**Cloudflare Worker o'rnatish:** `cloudflare-worker/README.md` ga qarang. Bepul plan yetarli.
+
+## Phase 2 da qolganlar
+- ⏳ PWA push notification (alohida sessiya)
+- ⏳ Sentry — account ochish kerak
 - ⏳ Avtomatlashtirilgan testlar
+
+## v4.4 dagilar (Phase 2A)
+- Dark mode (kunduzgi/tungi)
+- Surib o'chirish (swipe-to-delete)
+- Audit log (Tarix)
 
 ## v4.3 dagilar (Phase 1)
 - Bug fix: somsa yegani daromaddan ayriladi
 - Bug fix: kassa balansi to'g'ri (naqd kirim − naqd chiqim)
 - "230k" → 230 000 avto-tushunish
 - Raqamlar bo'shliq bilan
-- Tendensiya kartasi (bugun/hafta/oy o'tgan davrga nisbatan)
+- Tendensiya kartasi
 - Eng yaxshi/yomon kunlar tahlili
-- Backup va Eksport (JSON, CSV)
+- Backup va Eksport
 - Undo o'chirishda
 
 ## Deploy
