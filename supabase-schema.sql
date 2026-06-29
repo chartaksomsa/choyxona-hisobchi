@@ -23,8 +23,12 @@ CREATE TABLE IF NOT EXISTS public.app_data (
   tg_config      jsonb,
   workers        jsonb,
   debts          jsonb,
+  audit_log      jsonb,
   updated_at     timestamptz DEFAULT now()
 );
+
+-- Agar jadval avval yaratilgan bo'lsa, yangi ustunlarni qo'shamiz (idempotent)
+ALTER TABLE public.app_data ADD COLUMN IF NOT EXISTS audit_log jsonb;
 
 ALTER TABLE public.app_data ENABLE ROW LEVEL SECURITY;
 

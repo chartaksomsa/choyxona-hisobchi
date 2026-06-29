@@ -27,7 +27,8 @@ const JSONB_KEYS = [
   'cash_register',
   'tg_config',
   'workers',
-  'debts'
+  'debts',
+  'audit_log'
 ];
 
 let userId = null;
