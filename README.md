@@ -1,39 +1,32 @@
-# Choyxona Hisobchi v4.5
+# Choyxona Hisobchi v4.6
 
 Mobil-birinchi cafe accounting PWA — React + Vite + Supabase + Tailwind.
 
-## v4.5 yangiliklari (Phase 2B)
+## v4.6 yangiliklari (MUHIM — saqlash tuzatildi)
 
-**Telegram avto-jadval va ob-havo bot — Cloudflare Worker orqali**
+Bu versiya saqlash bilan bog'liq jiddiy muammolarni hal qiladi:
 
-- **Avto-hisobotlar:** Sozlama → Telegram → har qabul qiluvchiga "Avtomatik yuborish" yoqing va vaqtni tanlang. Worker har daqiqa ishlaydi va belgilangan vaqtda hisobotni yuboradi.
+1. **Ma'lumot yo'qolishi tuzatildi** — avval saqlash xato berganda kod jim-jit "navbat"ga tashlardi va muvaffaqiyat deb ko'rsatardi. Doimiy xato bo'lsa (masalan bazada ustun yetishmasa) yozuvlar navbatda abadiy qotib qolardi va oyna yangilanganda yo'qolardi. Endi:
+   - Tarmoq xatosi → navbatga (qayta urinadi, 5 martagacha)
+   - Doimiy xato (baza/ruxsat) → **ekranda qizil ogohlantirish** ko'rsatiladi, jim tashlanmaydi
+   - Saqlash muvaffaqiyatsiz bo'lsa "Saqlandi" deb yolg'on ko'rsatmaydi
 
-- **Ob-havo ogohlantirishi:** Sozlama → Telegram → "Ob-havo ogohlantirish" yoqing, shaharingizni yozib qo'ying. Bot har kuni:
-  - Ertalab 08:00 — bugungi 12 soatlik prognozni tekshiradi (kuchli shamol, yomg'ir, qor, issiqlik)
-  - Kechqurun 18:00 — yarim tun va ertaga ertalabgi 18 soatlik prognozni tekshiradi (somsa **ertaga sotilishi kerak** bo'lgani uchun, kechki keskin o'zgarishlarni)
-  - Faqat haqiqiy ogohlantirish bor bo'lsa yuboradi (har kuni keraksiz xabar yo'q)
+2. **"Yozayotganda raqamlar o'chib ketishi" tuzatildi** — ishchilar oyligi va kassa balansi inputlarida har soniyada qiymat qayta yuklanardi. Endi faqat kun yoki saqlangan qiymat o'zgarsa yangilanadi, siz yozayotganda tegmaydi.
 
-**Cloudflare Worker o'rnatish:** `cloudflare-worker/README.md` ga qarang. Bepul plan yetarli.
+3. **Tashxis tugmasi** — Sozlama → Backup → "Tekshirishni boshlash". Supabase ulanishini va saqlashni test qilib, aniq qaysi qadam buzilganini ko'rsatadi.
 
-## Phase 2 da qolganlar
-- ⏳ PWA push notification (alohida sessiya)
-- ⏳ Sentry — account ochish kerak
-- ⏳ Avtomatlashtirilgan testlar
+4. **Navbatni tozalash** — agar ko'p yozuv navbatda qotib qolsa, akkaunt menyusida "Navbatni tozalash" tugmasi (ekrandagi ma'lumotlarga ta'sir qilmaydi).
 
-## v4.4 dagilar (Phase 2A)
-- Dark mode (kunduzgi/tungi)
-- Surib o'chirish (swipe-to-delete)
-- Audit log (Tarix)
+### Agar 4.5 yoki undan oldingi versiyadan kelayotgan bo'lsangiz
 
-## v4.3 dagilar (Phase 1)
-- Bug fix: somsa yegani daromaddan ayriladi
-- Bug fix: kassa balansi to'g'ri (naqd kirim − naqd chiqim)
-- "230k" → 230 000 avto-tushunish
-- Raqamlar bo'shliq bilan
-- Tendensiya kartasi
-- Eng yaxshi/yomon kunlar tahlili
-- Backup va Eksport
-- Undo o'chirishda
+Supabase SQL Editor'da `supabase-schema.sql` ni **qayta run qiling** — bu `audit_log` ustunini qo'shadi (idempotent, hech narsa buzilmaydi). Bu muhim qadam.
+
+## Avvalgi versiyalar
+- v4.5 — Telegram avto-jadval + ob-havo bot (Cloudflare Worker)
+- v4.4 — Dark mode, swipe-to-delete, audit log
+- v4.3 — somsa bug fix, kassa fix, "230k" parsing, tendensiya, backup, undo
+- v4.2 — ENTER bilan saqlash, ishchilar oyligi paneli
+- v4.1 — Telegram batafsil hisobotlar, ishchi ID, print 80mm
 
 ## Deploy
 

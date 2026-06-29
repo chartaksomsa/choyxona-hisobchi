@@ -46,6 +46,32 @@ export function subscribeAll(cb) {
   return () => listeners.delete(cb);
 }
 
+// Xato xabarchi — saqlashda jiddiy xato bo'lsa UI'ga bildiradi (jim queue emas)
+let errorHandler = null;
+export function setErrorHandler(fn) { errorHandler = fn; }
+function reportError(context, err) {
+  const msg = err?.message || String(err);
+  console.error(`[${context}]`, msg, err);
+  if (errorHandler) {
+    try { errorHandler(context, msg); } catch {}
+  }
+}
+
+// Xato turini aniqlash: tarmoq (vaqtinchalik) vs doimiy (schema/RLS/auth)
+// Tarmoq xatosi → queue (keyin qayta urinadi)
+// Doimiy xato → UI'ga ko'rsatamiz, queue'ga tashlamaymiz (abadiy aylanmaslik uchun)
+function isNetworkError(err) {
+  const msg = (err?.message || '').toLowerCase();
+  return (
+    msg.includes('failed to fetch') ||
+    msg.includes('network') ||
+    msg.includes('timeout') ||
+    msg.includes('load failed') ||
+    err?.code === 'PGRST000' ||  // connection
+    !navigator.onLine
+  );
+}
+
 export function setUserId(id) {
   if (userId === id) return;
   userId = id;
@@ -134,19 +160,14 @@ export async function sGet(key, fallback) {
 
 export async function sSet(key, value) {
   if (key === 'transactions') {
-    // Tx writes go through normalized API
     throw new Error('Use txInsert/txUpdate/txDelete for transactions');
   }
   cache[key] = value;
   if (!useCloud) {
     try { localStorage.setItem(LS_PREFIX + key, JSON.stringify(value)); return true; }
-    catch { return false; }
+    catch (e) { reportError('Saqlash (lokal)', e); return false; }
   }
-  if (!userId) return false;
-  if (!onlineState) {
-    enqueue({ kind: 'jsonb', key, value });
-    return true;
-  }
+  if (!userId) { reportError('Saqlash', new Error('Tizimga kirilmagan')); return false; }
   try {
     const { error } = await supabase
       .from('app_data')
@@ -155,9 +176,12 @@ export async function sSet(key, value) {
     if (error) throw error;
     return true;
   } catch (e) {
-    console.warn('jsonb save failed, queueing:', e.message);
-    enqueue({ kind: 'jsonb', key, value });
-    return true; // optimistically successful from UI perspective
+    if (isNetworkError(e)) {
+      enqueue({ kind: 'jsonb', key, value });
+      return true;
+    }
+    reportError(`"${key}" saqlash`, e);
+    return false;
   }
 }
 
@@ -204,36 +228,44 @@ export async function txInsert(tx) {
   notify();
 
   if (!useCloud) {
-    const arr = txCache;
-    try { localStorage.setItem(LS_PREFIX + 'transactions', JSON.stringify(arr)); } catch {}
+    try { localStorage.setItem(LS_PREFIX + 'transactions', JSON.stringify(txCache)); }
+    catch (e) { reportError('Saqlash (lokal)', e); return false; }
     return true;
   }
 
-  if (!userId) return false;
+  if (!userId) { reportError('Saqlash', new Error('Tizimga kirilmagan')); return false; }
   const row = txToRow(tx);
-  if (!onlineState) { enqueue({ kind: 'tx_insert', row }); return true; }
   try {
     const { error } = await supabase.from('app_transactions').insert(row);
     if (error) throw error;
     return true;
   } catch (e) {
-    console.warn('tx insert failed, queueing:', e.message);
-    enqueue({ kind: 'tx_insert', row });
-    return true;
+    if (isNetworkError(e)) {
+      // Tarmoq xatosi — queue'ga, keyin qayta urinadi
+      enqueue({ kind: 'tx_insert', row });
+      return true;
+    }
+    // Doimiy xato (schema/RLS) — UI'ga ko'rsatamiz, queue'ga TASHLAMAYMIZ
+    reportError('Yozuvni saqlash', e);
+    // Cache'dan ham olib tashlaymiz (chunki bazaga ketmadi)
+    txCache = txCache.filter(t => t.id !== tx.id);
+    notify();
+    return false;
   }
 }
 
 export async function txDelete(id) {
+  const removed = txCache.find(t => t.id === id);
   txCache = txCache.filter(t => t.id !== id);
   notify();
 
   if (!useCloud) {
-    try { localStorage.setItem(LS_PREFIX + 'transactions', JSON.stringify(txCache)); } catch {}
+    try { localStorage.setItem(LS_PREFIX + 'transactions', JSON.stringify(txCache)); }
+    catch (e) { reportError('O\'chirish (lokal)', e); return false; }
     return true;
   }
 
-  if (!userId) return false;
-  if (!onlineState) { enqueue({ kind: 'tx_delete', id }); return true; }
+  if (!userId) { reportError('O\'chirish', new Error('Tizimga kirilmagan')); return false; }
   try {
     const { error } = await supabase
       .from('app_transactions')
@@ -243,9 +275,14 @@ export async function txDelete(id) {
     if (error) throw error;
     return true;
   } catch (e) {
-    console.warn('tx delete failed, queueing:', e.message);
-    enqueue({ kind: 'tx_delete', id });
-    return true;
+    if (isNetworkError(e)) {
+      enqueue({ kind: 'tx_delete', id });
+      return true;
+    }
+    reportError('Yozuvni o\'chirish', e);
+    // Qaytarib qo'yamiz (o'chirilmadi)
+    if (removed) { txCache = [...txCache, removed]; notify(); }
+    return false;
   }
 }
 
@@ -260,14 +297,20 @@ function writeQueue(q) {
 }
 function enqueue(op) {
   const q = readQueue();
-  q.push({ ...op, ts: Date.now() });
+  q.push({ ...op, ts: Date.now(), attempts: 0 });
   writeQueue(q);
 }
 export function getQueueSize() { return readQueue().length; }
+// Qotib qolgan queue'ni tozalash (foydalanuvchi qo'lda chaqiradi)
+export function clearQueue() {
+  writeQueue([]);
+  notify();
+}
 
 let flushing = false;
 export async function flushQueue() {
-  if (flushing || !useCloud || !userId || !onlineState) return;
+  if (flushing || !useCloud || !userId) return;
+  if (!navigator.onLine) return;
   const q = readQueue();
   if (q.length === 0) return;
   flushing = true;
@@ -282,7 +325,6 @@ export async function flushQueue() {
             .eq('user_id', userId);
           if (error) throw error;
         } else if (op.kind === 'tx_insert') {
-          // Use upsert to handle case where realtime already brought it back
           const { error } = await supabase
             .from('app_transactions')
             .upsert(op.row, { onConflict: 'id' });
@@ -296,8 +338,14 @@ export async function flushQueue() {
           if (error) throw error;
         }
       } catch (e) {
-        console.warn('flush op failed:', e.message);
-        remaining.push(op);
+        const attempts = (op.attempts || 0) + 1;
+        if (isNetworkError(e) && attempts < 5) {
+          // Tarmoq xatosi — yana saqlab qo'yamiz (5 martagacha)
+          remaining.push({ ...op, attempts });
+        } else {
+          // Doimiy xato yoki 5 marta urinildi — tashlab yuboramiz va xabar beramiz
+          reportError('Sinxronlash', e);
+        }
       }
     }
     writeQueue(remaining);
@@ -319,7 +367,9 @@ if (typeof window !== 'undefined') {
     notify();
   });
 }
-export function isOnline() { return onlineState; }
+export function isOnline() {
+  return typeof navigator !== 'undefined' ? navigator.onLine : true;
+}
 
 // ============================================================
 // REALTIME — Supabase channels
@@ -378,6 +428,77 @@ export async function reloadFromCloud() {
   if (!useCloud || !userId) return;
   isInitialized = false;
   return loadAll();
+}
+
+// ============================================================
+// DIAGNOSTIKA — ulanish va saqlashni tekshiradi
+// ============================================================
+export async function runDiagnostics() {
+  const results = [];
+  const add = (name, ok, detail) => results.push({ name, ok, detail });
+
+  // 1. Cloud sozlanganmi?
+  if (!useCloud) {
+    add('Rejim', true, 'Lokal (localStorage) — Supabase ulanmagan');
+    add('localStorage', testLocalStorage(), testLocalStorage() ? 'Ishlaydi' : 'BLOKLANGAN — brauzer sozlamasini tekshiring');
+    return results;
+  }
+  add('Rejim', true, 'Bulut (Supabase)');
+
+  // 2. Auth
+  add('Tizimga kirish', !!userId, userId ? `User ID mavjud` : 'KIRILMAGAN');
+  if (!userId) return results;
+
+  // 3. app_data o'qish
+  try {
+    const { error } = await supabase.from('app_data').select('user_id').eq('user_id', userId).maybeSingle();
+    add('app_data o\'qish', !error, error ? error.message : 'OK');
+  } catch (e) { add('app_data o\'qish', false, e.message); }
+
+  // 4. app_data yozish (audit_log ustuni mavjudligini tekshiradi)
+  try {
+    const { error } = await supabase.from('app_data')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('user_id', userId);
+    add('app_data yozish', !error, error ? error.message : 'OK');
+  } catch (e) { add('app_data yozish', false, e.message); }
+
+  // 5. audit_log ustuni bormi?
+  try {
+    const { error } = await supabase.from('app_data')
+      .update({ audit_log: [] })
+      .eq('user_id', userId);
+    add('audit_log ustuni', !error, error ? `YO'Q: ${error.message}` : 'Mavjud');
+  } catch (e) { add('audit_log ustuni', false, e.message); }
+
+  // 6. app_transactions yozish (asosiy muammo shu yerda bo'lishi mumkin)
+  const testId = 'diag_' + Date.now();
+  try {
+    const { error } = await supabase.from('app_transactions').insert({
+      id: testId, user_id: userId, type: 'income', category_id: 'diag',
+      amount: 1, date: new Date().toISOString().slice(0, 10),
+    });
+    if (error) {
+      add('app_transactions yozish', false, error.message);
+    } else {
+      add('app_transactions yozish', true, 'OK');
+      // Tozalash
+      await supabase.from('app_transactions').delete().eq('id', testId);
+    }
+  } catch (e) { add('app_transactions yozish', false, e.message); }
+
+  // 7. Navbat holati
+  add('Navbat (queue)', getQueueSize() === 0, `${getQueueSize()} ta yozuv kutmoqda`);
+
+  return results;
+}
+
+function testLocalStorage() {
+  try {
+    localStorage.setItem('__test__', '1');
+    localStorage.removeItem('__test__');
+    return true;
+  } catch { return false; }
 }
 
 // ============================================================

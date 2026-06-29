@@ -1,47 +1,39 @@
-// Theme: 'auto' | 'light' | 'dark'
-// 'auto' — tizim sozlamasiga qarab (prefers-color-scheme)
-// localStorage'da saqlanadi
+// theme.js — sahifa ochilishida tungi/kunduzgi rejimni darhol qo'llash
+// (FOUC — yonib-o'chish effektini oldini oladi)
 
-const THEME_KEY = 'choyxona_theme';
+const KEY = 'choyxona_theme';
 
 export function getStoredTheme() {
   try {
-    const v = localStorage.getItem(THEME_KEY);
-    if (v === 'light' || v === 'dark' || v === 'auto') return v;
+    const saved = localStorage.getItem(KEY);
+    if (saved === 'dark' || saved === 'light') return saved;
   } catch (_) {}
-  return 'auto';
-}
-
-export function setStoredTheme(t) {
   try {
-    localStorage.setItem(THEME_KEY, t);
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   } catch (_) {}
-  applyTheme(t);
+  return 'light';
 }
 
-export function applyTheme(t) {
+export function setStoredTheme(theme) {
+  try { localStorage.setItem(KEY, theme); } catch (_) {}
+}
+
+export function applyTheme(theme) {
   const root = document.documentElement;
-  let isDark;
-  if (t === 'dark') isDark = true;
-  else if (t === 'light') isDark = false;
-  else {
-    isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-  }
-  if (isDark) root.classList.add('dark');
+  if (theme === 'dark') root.classList.add('dark');
   else root.classList.remove('dark');
 }
 
-// Tizim rejimi o'zgargan paytda 'auto' bo'lsa moslashtirish
 export function watchSystemTheme() {
-  if (!window.matchMedia) return () => {};
-  const mql = window.matchMedia('(prefers-color-scheme: dark)');
-  const handler = () => {
-    if (getStoredTheme() === 'auto') applyTheme('auto');
-  };
-  if (mql.addEventListener) mql.addEventListener('change', handler);
-  else mql.addListener(handler);
-  return () => {
-    if (mql.removeEventListener) mql.removeEventListener('change', handler);
-    else mql.removeListener(handler);
-  };
+  try {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    mq.addEventListener('change', (e) => {
+      // Faqat foydalanuvchi qo'lda tanlamagan bo'lsa tizimga ergashamiz
+      let saved = null;
+      try { saved = localStorage.getItem(KEY); } catch (_) {}
+      if (saved !== 'dark' && saved !== 'light') {
+        applyTheme(e.matches ? 'dark' : 'light');
+      }
+    });
+  } catch (_) {}
 }

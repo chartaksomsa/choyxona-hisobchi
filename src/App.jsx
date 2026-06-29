@@ -10,13 +10,13 @@ import {
   Wifi, WifiOff, RefreshCw, PieChart as PieChartIcon, Printer, Hash,
   Sun, Moon, Monitor
 } from "lucide-react";
-import { getStoredTheme, setStoredTheme } from './theme.js';
+import { getStoredTheme, setStoredTheme, applyTheme } from './theme.js';
 import {
   useCloud, supabase, setUserId, loadAll, sGet, sSet,
   txInsert, txDelete,
   hasLocalData, migrateLocalToCloud, reloadFromCloud,
   signUp, signIn, signOut, getSession, onAuthChange,
-  subscribeAll, isOnline, getQueueSize, flushQueue
+  subscribeAll, isOnline, getQueueSize, flushQueue, setErrorHandler, clearQueue, runDiagnostics
 } from './supabase.js';
 
 // Note: charts.jsx is dynamically imported in ChartsLoader (Reports tab),
@@ -210,7 +210,7 @@ function AuthScreen() {
         </div>
 
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-1 bg-stone-100 dark:bg-slate-700 dark:bg-slate-800 rounded-lg p-1">
+          <div className="grid grid-cols-2 gap-1 bg-stone-100 dark:bg-slate-700 rounded-lg p-1">
             <button onClick={() => { setMode('login'); setError(null); setInfo(null); }}
               className={`py-2 rounded-md text-sm font-semibold transition-colors ${mode === 'login' ? 'bg-white dark:bg-slate-800 text-emerald-900 dark:text-emerald-100 shadow-sm' : 'text-slate-600 dark:text-slate-400'}`}>
               Kirish
@@ -281,19 +281,10 @@ function ChoyxonaHisobchi({ userEmail }) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   // Dark mode — kunduzgi/tungi rejim, localStorage'da saqlanadi
-  const [theme, setTheme] = useState(() => {
-    try {
-      const saved = localStorage.getItem('choyxona_theme');
-      if (saved === 'dark' || saved === 'light') return saved;
-      // Tizim tanlovi
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    } catch (_) { return 'light'; }
-  });
+  const [theme, setTheme] = useState(() => getStoredTheme());
   useEffect(() => {
-    try { localStorage.setItem('choyxona_theme', theme); } catch (_) {}
-    const root = document.documentElement;
-    if (theme === 'dark') root.classList.add('dark');
-    else root.classList.remove('dark');
+    setStoredTheme(theme);
+    applyTheme(theme);
   }, [theme]);
   const [toast, setToast] = useState(null);
   const [migrationOffer, setMigrationOffer] = useState(false);
@@ -312,7 +303,13 @@ function ChoyxonaHisobchi({ userEmail }) {
   const [debts, setDebts] = useState([]);
   const [auditLog, setAuditLog] = useState([]); // O'zgarishlar tarixi
 
-  useEffect(() => { initialize(); }, []);
+  useEffect(() => {
+    // Saqlash xatolarini foydalanuvchiga ko'rsatish
+    setErrorHandler((context, msg) => {
+      showToast(`${context} muvaffaqiyatsiz: ${msg}`, 'error');
+    });
+    initialize();
+  }, []);
 
   // Realtime + connectivity subscription
   useEffect(() => {
@@ -456,8 +453,12 @@ function ChoyxonaHisobchi({ userEmail }) {
   // === TRANSACTIONS — normalized API (concurrency-safe) ===
   async function addTransaction(tx) {
     const newTx = { id: genId(), createdAt: Date.now(), ...tx };
+    const ok = await txInsert(newTx);
+    if (!ok) {
+      // txInsert xato toast'ni o'zi ko'rsatadi; qo'shmaymiz
+      return;
+    }
     setTransactions(prev => [...prev, newTx]);
-    await txInsert(newTx);
     const cat = tx.type === 'income'
       ? categories.income.find(c => c.id === tx.categoryId)
       : categories.expense.find(c => c.id === tx.categoryId);
@@ -468,8 +469,9 @@ function ChoyxonaHisobchi({ userEmail }) {
   async function deleteTransaction(id) {
     // Undo uchun o'chirilgan tx'ni saqlab qolamiz
     const removed = transactions.find(t => t.id === id);
+    const ok = await txDelete(id);
+    if (!ok) return; // xato toast txDelete'da ko'rsatiladi
     setTransactions(prev => prev.filter(t => t.id !== id));
-    await txDelete(id);
     if (removed) {
       const cat = removed.type === 'income'
         ? categories.income.find(c => c.id === removed.categoryId)
@@ -478,10 +480,12 @@ function ChoyxonaHisobchi({ userEmail }) {
       showToast("O'chirildi", 'success', {
         label: 'Bekor',
         onClick: async () => {
-          setTransactions(prev => [...prev, removed]);
-          try { await txInsert(removed); } catch (_) {}
-          audit('tx_undo_delete', `Tiklandi: ${cat?.name || '—'} ${fmt(removed.amount)}`);
-          showToast("Tiklandi");
+          const undoOk = await txInsert(removed);
+          if (undoOk) {
+            setTransactions(prev => [...prev, removed]);
+            audit('tx_undo_delete', `Tiklandi: ${cat?.name || '—'} ${fmt(removed.amount)}`);
+            showToast("Tiklandi");
+          }
         }
       });
     } else {
@@ -897,6 +901,22 @@ function ChoyxonaHisobchi({ userEmail }) {
                   </button>
                 )}
               </div>
+              {queueSize > 50 && (
+                <div className="bg-rose-900/40 rounded-lg p-3 text-[11px]">
+                  <p className="text-rose-200 mb-2">
+                    Juda ko'p yozuv navbatda qotib qolgan ({queueSize}). Agar "Yuborish" ishlamasa, navbatni tozalang. Bu ekrandagi ma'lumotlarga ta'sir qilmaydi — faqat takroriy navbatni o'chiradi.
+                  </p>
+                  <button onClick={() => {
+                    if (confirm(`${queueSize} ta navbatdagi yozuvni tozalaysizmi? Ekrandagi ma'lumotlar saqlanadi.`)) {
+                      clearQueue();
+                      setQueueSize(0);
+                      showToast("Navbat tozalandi");
+                    }
+                  }} className="bg-rose-600 hover:bg-rose-500 text-white px-3 py-1.5 rounded text-[11px] font-bold w-full">
+                    Navbatni tozalash
+                  </button>
+                </div>
+              )}
               <button onClick={async () => { await signOut(); }}
                 className="w-full bg-rose-700 hover:bg-rose-600 text-white font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
                 <LogOut className="w-4 h-4" />Chiqish
@@ -1222,7 +1242,7 @@ function TrendsCard({ trends }) {
           return (
             <div key={it.key} className="px-4 py-2.5 flex items-center justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 dark:text-slate-600">{it.title}</p>
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">{it.title}</p>
                 <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{it.label}: {fmtSom(it.prev)}</p>
               </div>
               <div className="text-right flex-shrink-0">
@@ -1256,14 +1276,23 @@ function CashRegisterCard({ date, cashRegister, totalIncome, totalCashless, cash
   const [countedCash, setCountedCash] = useState(initialCounted);
   const [dirty, setDirty] = useState(false);
 
-  useEffect(() => {
+  // Faqat sana yoki saqlangan qiymat o'zgarsa input'ni yangilaymiz.
+  // Foydalanuvchi yozayotganda emas (dirty bo'lsa tegmaymiz).
+  const savedValue = (() => {
     const ex = cashRegister[date] || {};
-    const c = ex.countedCash !== undefined && ex.countedCash !== null
+    return ex.countedCash !== undefined && ex.countedCash !== null
       ? ex.countedCash
       : (ex.endCash !== undefined && ex.endCash !== null ? ex.endCash : '');
-    setCountedCash(c);
-    setDirty(false);
-  }, [date, cashRegister]);
+  })();
+  const lastKeyRef = useRef('');
+  useEffect(() => {
+    const key = `${date}:${savedValue}`;
+    if (lastKeyRef.current === key) return;
+    lastKeyRef.current = key;
+    if (!dirty) {
+      setCountedCash(savedValue);
+    }
+  }, [date, savedValue]);
 
   const counted = countedCash !== '' ? parseAmount(countedCash) : null;
   const diff = counted !== null ? counted - expectedCash : null;
@@ -1546,12 +1575,12 @@ function ExpenseTab({ date, categories, workers, transactions, onAdd, onDelete, 
 
       <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 p-2 flex flex-wrap gap-1.5">
         <button onClick={() => setFilterIncomeId('all')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filterIncomeId === 'all' ? 'bg-emerald-700 text-white' : 'bg-stone-100 dark:bg-slate-700 dark:bg-slate-800 text-slate-700 dark:text-slate-300 dark:text-slate-600'}`}>
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filterIncomeId === 'all' ? 'bg-emerald-700 text-white' : 'bg-stone-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}`}>
           Hammasi
         </button>
         {categories.income.filter(c => !c.autoFromDrinks).map(c => (
           <button key={c.id} onClick={() => setFilterIncomeId(c.id)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filterIncomeId === c.id ? 'bg-emerald-700 text-white' : 'bg-stone-100 dark:bg-slate-700 dark:bg-slate-800 text-slate-700 dark:text-slate-300 dark:text-slate-600'}`}>
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filterIncomeId === c.id ? 'bg-emerald-700 text-white' : 'bg-stone-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}`}>
             {c.icon} {c.name.split(' ')[0]}
           </button>
         ))}
@@ -1886,15 +1915,25 @@ function WorkerSalaryPanel({ cat, date, workers, catTxs, onAdd, onDelete }) {
   const [otherAmount, setOtherAmount] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // workers o'zgarsa yoki kun o'zgarsa — input'larni yangilash
+  // todayByWorker'ning barqaror "imzosi" — faqat mazmun o'zgarsa qayta hisoblanadi
+  const todaySignature = useMemo(() => {
+    return workers.map(w => `${w.id}:${todayByWorker[w.id] || 0}`).join('|');
+  }, [workers, todayByWorker]);
+
+  // FAQAT kun yoki haqiqiy saqlangan summalar o'zgarsa input'ni yangilaymiz.
+  // Foydalanuvchi yozayotganda (amounts o'zgarganda) BU ISHLAMAYDI —
+  // shu sabab raqamlar o'chmaydi.
+  const lastSigRef = useRef('');
   useEffect(() => {
+    if (lastSigRef.current === todaySignature) return; // mazmun o'zgarmagan — tegmaymiz
+    lastSigRef.current = todaySignature;
     const init = {};
     workers.forEach(w => {
       const v = todayByWorker[w.id];
       init[w.id] = v ? String(v) : '';
     });
     setAmounts(init);
-  }, [workers, date, todayByWorker]);
+  }, [todaySignature]);
 
   // Faqat o'zgarganlarni aniqlash
   const dirtyWorkers = useMemo(() => {
@@ -2044,7 +2083,7 @@ function WorkerSalaryPanel({ cat, date, workers, catTxs, onAdd, onDelete }) {
                 return (
                   <div key={t.id} className="flex items-center gap-2 px-2 py-1 bg-stone-50 dark:bg-slate-900 rounded text-xs">
                     {time && <span className="text-slate-400 dark:text-slate-500 font-mono w-10 flex-shrink-0">{time}</span>}
-                    <span className="flex-1 truncate text-slate-700 dark:text-slate-300 dark:text-slate-600">
+                    <span className="flex-1 truncate text-slate-700 dark:text-slate-300">
                       {codeStr && <span className="font-mono text-stone-600">{codeStr}</span>}
                       <span className="font-medium">{t.payee || '—'}</span>
                     </span>
@@ -2255,7 +2294,7 @@ function DrinkForm({ initial, onSubmit, onCancel }) {
         </div>
       )}
       <div className="grid grid-cols-2 gap-2 pt-1">
-        <button onClick={onCancel} className="bg-stone-200 dark:bg-slate-700 hover:bg-stone-300 dark:bg-slate-600 text-slate-700 dark:text-slate-300 dark:text-slate-600 font-semibold py-2 rounded-lg text-sm">Bekor</button>
+        <button onClick={onCancel} className="bg-stone-200 dark:bg-slate-700 hover:bg-stone-300 dark:bg-slate-600 text-slate-700 dark:text-slate-300 font-semibold py-2 rounded-lg text-sm">Bekor</button>
         <button onClick={submit} className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2 rounded-lg text-sm">Saqlash</button>
       </div>
     </div>
@@ -2420,7 +2459,7 @@ function DebtCard({ debt, isEditing, isPaying, onEdit, onCancelEdit, onPay, onCa
             <button onClick={onPay} className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-1">
               <Banknote className="w-3.5 h-3.5" />To'lov
             </button>
-            <button onClick={onEdit} className="bg-stone-100 dark:bg-slate-700 dark:bg-slate-800 hover:bg-stone-200 dark:hover:bg-slate-600 dark:bg-slate-700 text-slate-700 dark:text-slate-300 dark:text-slate-600 text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-1">
+            <button onClick={onEdit} className="bg-stone-100 dark:bg-slate-700 hover:bg-stone-200 dark:hover:bg-slate-600 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-1">
               <Edit3 className="w-3.5 h-3.5" />Tahrir
             </button>
             <button onClick={onDelete} className="bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300 text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-1">
@@ -2430,7 +2469,7 @@ function DebtCard({ debt, isEditing, isPaying, onEdit, onCancelEdit, onPay, onCa
         )}
         {!isPaying && isPaid && (
           <div className="grid grid-cols-2 gap-2 mt-3">
-            <button onClick={onEdit} className="bg-stone-100 dark:bg-slate-700 dark:bg-slate-800 hover:bg-stone-200 dark:hover:bg-slate-600 dark:bg-slate-700 text-slate-700 dark:text-slate-300 dark:text-slate-600 text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-1">
+            <button onClick={onEdit} className="bg-stone-100 dark:bg-slate-700 hover:bg-stone-200 dark:hover:bg-slate-600 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-1">
               <Edit3 className="w-3.5 h-3.5" />Tahrir
             </button>
             <button onClick={onDelete} className="bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300 text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-1">
@@ -2515,7 +2554,7 @@ function DebtForm({ initial, defaultType, onSubmit, onCancel }) {
       </label>
 
       <div className="grid grid-cols-2 gap-2 pt-1">
-        <button onClick={onCancel} className="bg-stone-200 dark:bg-slate-700 hover:bg-stone-300 dark:bg-slate-600 text-slate-700 dark:text-slate-300 dark:text-slate-600 font-semibold py-2 rounded-lg text-sm">Bekor</button>
+        <button onClick={onCancel} className="bg-stone-200 dark:bg-slate-700 hover:bg-stone-300 dark:bg-slate-600 text-slate-700 dark:text-slate-300 font-semibold py-2 rounded-lg text-sm">Bekor</button>
         <button onClick={submit} className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2 rounded-lg text-sm">Saqlash</button>
       </div>
     </div>
@@ -2534,12 +2573,12 @@ function PaymentForm({ maxAmount, onSubmit, onCancel }) {
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 dark:text-slate-600">To'langan summa (qoldiq: {fmtSom(maxAmount)})</p>
+      <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">To'langan summa (qoldiq: {fmtSom(maxAmount)})</p>
       <input type="text" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" autoFocus
         onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
         className="w-full px-3 py-2.5 border border-stone-300 dark:border-slate-600 rounded-lg text-base font-semibold focus:border-emerald-600 outline-none" />
       <div className="grid grid-cols-3 gap-2">
-        <button onClick={onCancel} className="bg-stone-200 dark:bg-slate-700 hover:bg-stone-300 dark:bg-slate-600 text-slate-700 dark:text-slate-300 dark:text-slate-600 font-semibold py-2 rounded-lg text-xs">Bekor</button>
+        <button onClick={onCancel} className="bg-stone-200 dark:bg-slate-700 hover:bg-stone-300 dark:bg-slate-600 text-slate-700 dark:text-slate-300 font-semibold py-2 rounded-lg text-xs">Bekor</button>
         <button onClick={fullPay} className="bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 rounded-lg text-xs">To'liq to'lov</button>
         <button onClick={submit} disabled={!amount || parseAmount(amount) <= 0}
           className="bg-emerald-700 hover:bg-emerald-800 disabled:bg-stone-300 dark:bg-slate-600 text-white font-semibold py-2 rounded-lg text-xs">Saqlash</button>
@@ -2717,11 +2756,11 @@ function ReportsTab({ categories, transactions, drinkDaily, drinks, cashRegister
       <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 p-3 space-y-2">
         <div className="grid grid-cols-2 gap-2">
           <button onClick={() => setPeriod('month')}
-            className={`py-2 rounded-lg text-sm font-semibold transition-colors ${period === 'month' ? 'bg-emerald-700 text-white' : 'bg-stone-100 dark:bg-slate-700 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>
+            className={`py-2 rounded-lg text-sm font-semibold transition-colors ${period === 'month' ? 'bg-emerald-700 text-white' : 'bg-stone-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
             Oylik
           </button>
           <button onClick={() => setPeriod('year')}
-            className={`py-2 rounded-lg text-sm font-semibold transition-colors ${period === 'year' ? 'bg-emerald-700 text-white' : 'bg-stone-100 dark:bg-slate-700 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>
+            className={`py-2 rounded-lg text-sm font-semibold transition-colors ${period === 'year' ? 'bg-emerald-700 text-white' : 'bg-stone-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
             Yillik
           </button>
         </div>
@@ -2805,7 +2844,7 @@ function ReportsTab({ categories, transactions, drinkDaily, drinks, cashRegister
                     </div>
                     <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300 whitespace-nowrap">{fmtSom(amount)}</p>
                   </div>
-                  <div className="bg-stone-100 dark:bg-slate-700 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                  <div className="bg-stone-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
                     <div className="bg-emerald-500 h-full" style={{ width: `${pct}%` }}></div>
                   </div>
                   <div className="flex items-center justify-between mt-1">
@@ -2840,7 +2879,7 @@ function ReportsTab({ categories, transactions, drinkDaily, drinks, cashRegister
                     </div>
                     <p className="text-sm font-bold text-rose-700 dark:text-rose-300 whitespace-nowrap">{fmtSom(amount)}</p>
                   </div>
-                  <div className="bg-stone-100 dark:bg-slate-700 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                  <div className="bg-stone-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
                     <div className="bg-rose-500 h-full" style={{ width: `${pct}%` }}></div>
                   </div>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{pct}%</p>
@@ -2939,8 +2978,8 @@ function WeekdayAnalysisCard({ weekdayStats, period }) {
           const positive = d.avgNet >= 0;
           return (
             <div key={d.dow} className="grid grid-cols-[60px_1fr_90px] items-center gap-2 text-xs">
-              <span className="text-slate-700 dark:text-slate-300 dark:text-slate-600 font-semibold">{d.name}</span>
-              <div className="bg-stone-100 dark:bg-slate-700 dark:bg-slate-800 rounded-full h-4 overflow-hidden flex">
+              <span className="text-slate-700 dark:text-slate-300 font-semibold">{d.name}</span>
+              <div className="bg-stone-100 dark:bg-slate-700 rounded-full h-4 overflow-hidden flex">
                 {d.count > 0 && (
                   <div className={`h-full ${positive ? 'bg-emerald-500' : 'bg-rose-500'}`}
                     style={{ width: `${Math.max(pct, 2)}%` }} />
@@ -3176,7 +3215,22 @@ function AuditSection({ auditLog }) {
 function BackupSection({ categories, transactions, drinks, drinkDaily, cashRegister, debts, workers, tgConfig, onImport, onToast }) {
   const [importing, setImporting] = useState(false);
   const [confirmRestore, setConfirmRestore] = useState(null);
+  const [diag, setDiag] = useState(null);
+  const [diagRunning, setDiagRunning] = useState(false);
   const fileRef = useRef(null);
+
+  async function handleDiagnostics() {
+    setDiagRunning(true);
+    setDiag(null);
+    try {
+      const results = await runDiagnostics();
+      setDiag(results);
+    } catch (e) {
+      onToast(`Tashxis xatosi: ${e.message}`, 'error');
+    } finally {
+      setDiagRunning(false);
+    }
+  }
 
   async function handleExportJSON() {
     const { exportJSON } = await import('./backup.js');
@@ -3224,6 +3278,41 @@ function BackupSection({ categories, transactions, drinks, drinkDaily, cashRegis
 
   return (
     <>
+      {/* TASHXIS — saqlash muammosini aniqlash */}
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Info className="w-4 h-4 text-blue-700 dark:text-blue-300" />
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Tashxis (saqlash tekshiruvi)</p>
+        </div>
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Agar ma'lumotlar saqlanmayotgan bo'lsa, bu tugma muammoni aniqlaydi.
+        </p>
+        <button onClick={handleDiagnostics} disabled={diagRunning}
+          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-stone-300 text-white font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm">
+          {diagRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          {diagRunning ? 'Tekshirilmoqda...' : 'Tekshirishni boshlash'}
+        </button>
+        {diag && (
+          <div className="space-y-1.5 pt-1">
+            {diag.map((r, i) => (
+              <div key={i} className={`flex items-start gap-2 p-2 rounded-lg text-xs ${r.ok ? 'bg-emerald-50 dark:bg-emerald-900/30' : 'bg-rose-50 dark:bg-rose-900/30'}`}>
+                {r.ok ? <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" /> : <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 flex-shrink-0 mt-0.5" />}
+                <div className="min-w-0 flex-1">
+                  <p className={`font-semibold ${r.ok ? 'text-emerald-900 dark:text-emerald-100' : 'text-rose-900 dark:text-rose-100'}`}>{r.name}</p>
+                  <p className={`${r.ok ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'} break-words`}>{r.detail}</p>
+                </div>
+              </div>
+            ))}
+            {diag.some(r => !r.ok) && (
+              <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-[11px] text-amber-900 dark:text-amber-100 mt-2">
+                <p className="font-semibold mb-1">Qizil belgi bo'lsa:</p>
+                <p>"app_transactions yozish" yoki "audit_log ustuni" qizil bo'lsa — Supabase SQL Editor'da <code>supabase-schema.sql</code> ni qayta run qiling. Bu xatolarni tuzatadi.</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 p-4 space-y-3">
         <div className="flex items-center gap-2">
           <FileDown className="w-4 h-4 text-emerald-700 dark:text-emerald-300" />
@@ -3257,7 +3346,7 @@ function BackupSection({ categories, transactions, drinks, drinkDaily, cashRegis
         </div>
         <input ref={fileRef} type="file" accept=".json" onChange={handleFileSelected} className="hidden" />
         <button onClick={handlePickImport}
-          className="w-full bg-stone-100 dark:bg-slate-700 dark:bg-slate-800 hover:bg-stone-200 dark:hover:bg-slate-600 dark:bg-slate-700 text-slate-700 dark:text-slate-300 dark:text-slate-600 font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm border border-stone-300 dark:border-slate-600">
+          className="w-full bg-stone-100 dark:bg-slate-700 hover:bg-stone-200 dark:hover:bg-slate-600 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm border border-stone-300 dark:border-slate-600">
           <RefreshCw className="w-4 h-4" />JSON faylni tanlash
         </button>
       </div>
@@ -3269,7 +3358,7 @@ function BackupSection({ categories, transactions, drinks, drinkDaily, cashRegis
               <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400" />
               <p className="font-bold text-slate-900 dark:text-slate-100">Tiklashni tasdiqlang</p>
             </div>
-            <p className="text-sm text-slate-700 dark:text-slate-300 dark:text-slate-600">
+            <p className="text-sm text-slate-700 dark:text-slate-300">
               Bu tiklash <strong>hozirgi barcha</strong> ma'lumotlarni almashtiradi:
             </p>
             <div className="bg-stone-50 dark:bg-slate-900 rounded-lg p-3 text-xs space-y-1">
@@ -3280,7 +3369,7 @@ function BackupSection({ categories, transactions, drinks, drinkDaily, cashRegis
             </div>
             <div className="grid grid-cols-2 gap-2 pt-1">
               <button onClick={() => setConfirmRestore(null)}
-                className="bg-stone-200 dark:bg-slate-700 hover:bg-stone-300 dark:bg-slate-600 text-slate-700 dark:text-slate-300 dark:text-slate-600 font-semibold py-2 rounded-lg text-sm">
+                className="bg-stone-200 dark:bg-slate-700 hover:bg-stone-300 dark:bg-slate-600 text-slate-700 dark:text-slate-300 font-semibold py-2 rounded-lg text-sm">
                 Bekor
               </button>
               <button onClick={applyRestore} disabled={importing}
@@ -3435,7 +3524,7 @@ function CategoryForm({ type, incomeCategories, initial, onSubmit, onCancel }) {
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={perUnit} onChange={(e) => setPerUnit(e.target.checked)}
               className="w-4 h-4 rounded border-stone-300 dark:border-slate-600 text-emerald-600 dark:text-emerald-400 focus:ring-emerald-500" />
-            <span className="text-sm text-slate-700 dark:text-slate-300 dark:text-slate-600">Donalab sotiladi (somsa kabi)</span>
+            <span className="text-sm text-slate-700 dark:text-slate-300">Donalab sotiladi (somsa kabi)</span>
           </label>
           {perUnit && (
             <>
@@ -3448,14 +3537,14 @@ function CategoryForm({ type, incomeCategories, initial, onSubmit, onCancel }) {
               <label className="flex items-center gap-2 cursor-pointer ml-6">
                 <input type="checkbox" checked={trackEaten} onChange={(e) => setTrackEaten(e.target.checked)}
                   className="w-4 h-4 rounded border-stone-300 dark:border-slate-600 text-emerald-600 dark:text-emerald-400 focus:ring-emerald-500" />
-                <span className="text-sm text-slate-700 dark:text-slate-300 dark:text-slate-600">Ishchilar yegan dona sonini hisobla</span>
+                <span className="text-sm text-slate-700 dark:text-slate-300">Ishchilar yegan dona sonini hisobla</span>
               </label>
             </>
           )}
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={hasCommission} onChange={(e) => setHasCommission(e.target.checked)}
               className="w-4 h-4 rounded border-stone-300 dark:border-slate-600 text-emerald-600 dark:text-emerald-400 focus:ring-emerald-500" />
-            <span className="text-sm text-slate-700 dark:text-slate-300 dark:text-slate-600">Ulush tushadi (shashlik kabi)</span>
+            <span className="text-sm text-slate-700 dark:text-slate-300">Ulush tushadi (shashlik kabi)</span>
           </label>
           {hasCommission && (
             <label className="block ml-6">
@@ -3468,7 +3557,7 @@ function CategoryForm({ type, incomeCategories, initial, onSubmit, onCancel }) {
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={autoFromDrinks} onChange={(e) => setAutoFromDrinks(e.target.checked)}
               className="w-4 h-4 rounded border-stone-300 dark:border-slate-600 text-emerald-600 dark:text-emerald-400 focus:ring-emerald-500" />
-            <span className="text-sm text-slate-700 dark:text-slate-300 dark:text-slate-600">Avtomatik (Suvlar tabidan)</span>
+            <span className="text-sm text-slate-700 dark:text-slate-300">Avtomatik (Suvlar tabidan)</span>
           </label>
         </>
       )}
@@ -3490,18 +3579,18 @@ function CategoryForm({ type, incomeCategories, initial, onSubmit, onCancel }) {
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={isCashless} onChange={(e) => setIsCashless(e.target.checked)}
               className="w-4 h-4 rounded border-stone-300 dark:border-slate-600 text-emerald-600 dark:text-emerald-400 focus:ring-emerald-500" />
-            <span className="text-sm text-slate-700 dark:text-slate-300 dark:text-slate-600">Plastik chiqim (eski usul)</span>
+            <span className="text-sm text-slate-700 dark:text-slate-300">Plastik chiqim (eski usul)</span>
           </label>
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={trackPayee} onChange={(e) => setTrackPayee(e.target.checked)}
               className="w-4 h-4 rounded border-stone-300 dark:border-slate-600 text-emerald-600 dark:text-emerald-400 focus:ring-emerald-500" />
-            <span className="text-sm text-slate-700 dark:text-slate-300 dark:text-slate-600">Kim olganini hisobla (oylik kabi)</span>
+            <span className="text-sm text-slate-700 dark:text-slate-300">Kim olganini hisobla (oylik kabi)</span>
           </label>
         </>
       )}
 
       <div className="grid grid-cols-2 gap-2 pt-1">
-        <button onClick={onCancel} className="bg-stone-200 dark:bg-slate-700 hover:bg-stone-300 dark:bg-slate-600 text-slate-700 dark:text-slate-300 dark:text-slate-600 font-semibold py-2 rounded-lg text-sm">Bekor</button>
+        <button onClick={onCancel} className="bg-stone-200 dark:bg-slate-700 hover:bg-stone-300 dark:bg-slate-600 text-slate-700 dark:text-slate-300 font-semibold py-2 rounded-lg text-sm">Bekor</button>
         <button onClick={submit} className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2 rounded-lg text-sm">Saqlash</button>
       </div>
     </div>
@@ -3570,7 +3659,7 @@ function WorkersSection({ workers, transactions, workerByName, onAdd, onUpdate, 
                 </div>
               </div>
               <button onClick={() => setHistoryFor(historyFor === w.id ? null : w.id)}
-                className="w-full mt-3 bg-stone-50 dark:bg-slate-900 hover:bg-stone-100 dark:hover:bg-slate-700 dark:bg-slate-800 border border-stone-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 dark:text-slate-600 font-semibold py-2 rounded-lg text-xs flex items-center justify-center gap-2">
+                className="w-full mt-3 bg-stone-50 dark:bg-slate-900 hover:bg-stone-100 dark:hover:bg-slate-700 dark:bg-slate-800 border border-stone-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold py-2 rounded-lg text-xs flex items-center justify-center gap-2">
                 <CalendarIcon className="w-3.5 h-3.5" />
                 {historyFor === w.id ? 'Tarixni yashirish' : "Oylik tarixini ko'rish"}
               </button>
@@ -3626,10 +3715,10 @@ function WorkerForm({ initial, onSubmit, onCancel }) {
       <label className="flex items-center gap-2 cursor-pointer">
         <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)}
           className="w-4 h-4 rounded border-stone-300 dark:border-slate-600 text-emerald-600 dark:text-emerald-400 focus:ring-emerald-500" />
-        <span className="text-sm text-slate-700 dark:text-slate-300 dark:text-slate-600">Hozir ishlayapti (faol)</span>
+        <span className="text-sm text-slate-700 dark:text-slate-300">Hozir ishlayapti (faol)</span>
       </label>
       <div className="grid grid-cols-2 gap-2 pt-1">
-        <button onClick={onCancel} className="bg-stone-200 dark:bg-slate-700 hover:bg-stone-300 dark:bg-slate-600 text-slate-700 dark:text-slate-300 dark:text-slate-600 font-semibold py-2 rounded-lg text-sm">Bekor</button>
+        <button onClick={onCancel} className="bg-stone-200 dark:bg-slate-700 hover:bg-stone-300 dark:bg-slate-600 text-slate-700 dark:text-slate-300 font-semibold py-2 rounded-lg text-sm">Bekor</button>
         <button onClick={submit} className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2 rounded-lg text-sm">Saqlash</button>
       </div>
     </div>
@@ -4081,7 +4170,7 @@ function RecipientForm({ initial, onSubmit, onCancel }) {
       </div>
 
       <div className="grid grid-cols-2 gap-2 pt-1">
-        <button onClick={onCancel} className="bg-stone-200 dark:bg-slate-700 hover:bg-stone-300 dark:bg-slate-600 text-slate-700 dark:text-slate-300 dark:text-slate-600 font-semibold py-2 rounded-lg text-sm">Bekor</button>
+        <button onClick={onCancel} className="bg-stone-200 dark:bg-slate-700 hover:bg-stone-300 dark:bg-slate-600 text-slate-700 dark:text-slate-300 font-semibold py-2 rounded-lg text-sm">Bekor</button>
         <button onClick={submit} className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2 rounded-lg text-sm">Saqlash</button>
       </div>
     </div>
