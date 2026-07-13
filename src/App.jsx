@@ -573,6 +573,17 @@ function ChoyxonaHisobchi({ userEmail }) {
     await sSet('drinks', updated);
     showToast("O'chirildi");
   }
+  // Suvni yuqoriga/pastga surish (tartiblash)
+  async function moveDrink(id, direction) {
+    const idx = drinks.findIndex(d => d.id === id);
+    if (idx === -1) return;
+    const newIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (newIdx < 0 || newIdx >= drinks.length) return;
+    const updated = [...drinks];
+    [updated[idx], updated[newIdx]] = [updated[newIdx], updated[idx]];
+    setDrinks(updated);
+    await sSet('drinks', updated);
+  }
   async function saveDrinkDayRecord(date, drinkId, record) {
     const dayRecords = { ...(drinkDaily[date] || {}), [drinkId]: record };
     const updated = { ...drinkDaily, [date]: dayRecords };
@@ -1039,7 +1050,7 @@ function ChoyxonaHisobchi({ userEmail }) {
         {activeTab === 'drinks' && (
           <DrinksTab date={selectedDate} drinks={drinks} drinkDaily={drinkDaily}
             stats={drinkDayStats} onAdd={addDrink} onUpdate={updateDrink}
-            onDelete={deleteDrink} onSaveDay={saveDrinkDayRecord} />
+            onDelete={deleteDrink} onMove={moveDrink} onSaveDay={saveDrinkDayRecord} />
         )}
         {activeTab === 'reports' && (
           <ReportsTab categories={categories} transactions={transactions}
@@ -2179,7 +2190,7 @@ function WorkerSalaryPanel({ cat, date, workers, catTxs, onAdd, onDelete }) {
     </div>
   );
 }
-function DrinksTab({ date, drinks, drinkDaily, stats, onAdd, onUpdate, onDelete, onSaveDay }) {
+function DrinksTab({ date, drinks, drinkDaily, stats, onAdd, onUpdate, onDelete, onMove, onSaveDay }) {
   const [view, setView] = useState('daily');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -2235,15 +2246,32 @@ function DrinksTab({ date, drinks, drinkDaily, stats, onAdd, onUpdate, onDelete,
           </button>
           {showAddForm && <DrinkForm onSubmit={(data) => { onAdd(data); setShowAddForm(false); }} onCancel={() => setShowAddForm(false)} />}
           {drinks.length === 0 && !showAddForm && <div className="text-center py-8 text-slate-400 dark:text-slate-500 text-sm">Hali suv qo'shilmagan</div>}
-          {drinks.map(drink => (
+          {drinks.length > 1 && (
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 px-1">Tartibni o'zgartirish uchun ↑↓ tugmalaridan foydalaning. Bu tartib kunlik hisobda ham qo'llanadi.</p>
+          )}
+          {drinks.map((drink, idx) => (
             <div key={drink.id} className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
               {editingId === drink.id ? (
                 <DrinkForm initial={drink} onSubmit={(data) => { onUpdate(drink.id, data); setEditingId(null); }} onCancel={() => setEditingId(null)} />
               ) : (
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-3">
+                    {/* Tartiblash tugmalari */}
+                    <div className="flex flex-col gap-0.5 flex-shrink-0 -ml-1">
+                      <button onClick={() => onMove(drink.id, 'up')} disabled={idx === 0}
+                        className="p-1 text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 disabled:opacity-20 disabled:cursor-not-allowed">
+                        <ChevronUp className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => onMove(drink.id, 'down')} disabled={idx === drinks.length - 1}
+                        className="p-1 text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 disabled:opacity-20 disabled:cursor-not-allowed">
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-slate-900 dark:text-slate-100">{drink.name}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {drink.code && <span className="text-[10px] bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-mono px-1.5 py-0.5 rounded font-bold">{drink.code}</span>}
+                        <p className="font-semibold text-slate-900 dark:text-slate-100">{drink.name}</p>
+                      </div>
                       <div className="grid grid-cols-3 gap-2 mt-3">
                         <div className="bg-stone-50 dark:bg-slate-900 rounded-lg p-2"><p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">Tan narx</p><p className="text-sm font-bold text-slate-900 dark:text-slate-100">{fmt(drink.purchasePrice)}</p></div>
                         <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-lg p-2"><p className="text-[10px] text-emerald-700 dark:text-emerald-300 uppercase">Sotuv</p><p className="text-sm font-bold text-emerald-900 dark:text-emerald-100">{fmt(drink.salePrice)}</p></div>
@@ -2251,8 +2279,8 @@ function DrinksTab({ date, drinks, drinkDaily, stats, onAdd, onUpdate, onDelete,
                       </div>
                     </div>
                     <div className="flex flex-col gap-1.5 flex-shrink-0">
-                      <button onClick={() => setEditingId(drink.id)} className="p-2 text-slate-500 dark:text-slate-400 hover:bg-stone-100 dark:hover:bg-slate-700 dark:bg-slate-800 rounded-lg"><Edit3 className="w-4 h-4" /></button>
-                      <button onClick={() => onDelete(drink.id)} className="p-2 text-rose-500 hover:bg-rose-50 dark:bg-rose-900/30 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={() => setEditingId(drink.id)} className="p-2 text-slate-500 dark:text-slate-400 hover:bg-stone-100 dark:hover:bg-slate-700 rounded-lg"><Edit3 className="w-4 h-4" /></button>
+                      <button onClick={() => onDelete(drink.id)} className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </div>
                 </div>
@@ -2334,24 +2362,38 @@ function DrinkDayCard({ drink, start, added, end, date, onSave }) {
 
 function DrinkForm({ initial, onSubmit, onCancel }) {
   const [name, setName] = useState(initial?.name || '');
+  const [code, setCode] = useState(initial?.code || '');
   const [purchasePrice, setPurchasePrice] = useState(initial?.purchasePrice || '');
   const [salePrice, setSalePrice] = useState(initial?.salePrice || '');
 
   function submit() {
     if (!name.trim() || !purchasePrice || !salePrice) return;
-    onSubmit({ name: name.trim(), purchasePrice: parseAmount(purchasePrice), salePrice: parseAmount(salePrice) });
+    onSubmit({
+      name: name.trim(),
+      code: code.trim(),
+      purchasePrice: parseAmount(purchasePrice),
+      salePrice: parseAmount(salePrice),
+    });
   }
   const profit = (parseAmount(salePrice) || 0) - (parseAmount(purchasePrice) || 0);
 
   return (
     <div className="bg-stone-50 dark:bg-slate-900 border border-stone-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
       <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{initial ? "Suvni tahrirlash" : "Yangi suv"}</p>
-      <label className="block">
-        <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase">Nomi</span>
-        <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Kola 0.5L"
-          onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-          className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm focus:border-emerald-600 outline-none" />
-      </label>
+      <div className="grid grid-cols-[1fr_90px] gap-2">
+        <label className="block">
+          <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase">Nomi</span>
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Kola 0.5L"
+            onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+            className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm focus:border-emerald-600 outline-none" />
+        </label>
+        <label className="block">
+          <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase">ID/Kod</span>
+          <input type="text" value={code} onChange={(e) => setCode(e.target.value)} placeholder="K1"
+            onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+            className="w-full mt-1 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm font-mono focus:border-emerald-600 outline-none" />
+        </label>
+      </div>
       <div className="grid grid-cols-2 gap-2">
         <label className="block">
           <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase">Tan narx</span>
