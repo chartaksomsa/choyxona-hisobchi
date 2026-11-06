@@ -28,6 +28,7 @@ const JSONB_KEYS = [
   'tg_config',
   'workers',
   'debts',
+  'worker_ledger',
   'audit_log'
 ];
 

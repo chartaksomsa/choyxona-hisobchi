@@ -2,13 +2,13 @@
 // JSON: butun loyiha ma'lumoti — qaytarib yuklash mumkin
 // CSV: Excel'da ochiladigan tranzaksiyalar ro'yxati
 
-export function exportJSON({ categories, transactions, drinks, drinkDaily, cashRegister, debts, workers, tgConfig }) {
+export function exportJSON({ categories, transactions, drinks, drinkDaily, cashRegister, debts, workers, workerLedger, tgConfig }) {
   const payload = {
     exportedAt: new Date().toISOString(),
     version: 'v4.3',
     data: {
       categories, transactions, drinks, drinkDaily,
-      cashRegister, debts, workers, tgConfig,
+      cashRegister, debts, workers, workerLedger, tgConfig,
     },
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });

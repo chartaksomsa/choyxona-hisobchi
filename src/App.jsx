@@ -4,7 +4,7 @@ import {
   BarChart3, Plus, Trash2, Edit3, Save, X, Calendar, Wallet,
   AlertTriangle, Package, ChevronDown, ChevronUp,
   CreditCard, Percent, Check, Banknote, Link2, Info, Send,
-  Eye, EyeOff, Loader2, BookOpen, CheckCircle2, Users,
+  Eye, EyeOff, Loader2, BookOpen, CheckCircle2, Users, PauseCircle, PlayCircle,
   HandCoins, FileDown, LogOut, UserCircle, Mail, Lock,
   Calendar as CalendarIcon, ArrowUpRight, ArrowDownLeft, Clock,
   Wifi, WifiOff, RefreshCw, PieChart as PieChartIcon, Printer, Hash,
@@ -328,6 +328,7 @@ function ChoyxonaHisobchi({ userEmail }) {
   const [workers, setWorkers] = useState([]);
   const [debts, setDebts] = useState([]);
   const [auditLog, setAuditLog] = useState([]); // O'zgarishlar tarixi
+  const [workerLedger, setWorkerLedger] = useState([]); // Ishchilar shaxsiy hisobi (ovqat/ichimlik)
 
   useEffect(() => {
     // Saqlash xatolarini foydalanuvchiga ko'rsatish
@@ -395,6 +396,7 @@ function ChoyxonaHisobchi({ userEmail }) {
     setWorkers(cacheGet('workers', []));
     setDebts(cacheGet('debts', []));
     setAuditLog(cacheGet('audit_log', []));
+    setWorkerLedger(cacheGet('worker_ledger', []));
   }
 
   async function initialize() {
@@ -592,7 +594,7 @@ function ChoyxonaHisobchi({ userEmail }) {
   }
 
   async function saveCashRegister(date, data) {
-    const updated = { ...cashRegister, [date]: data };
+    const updated = { ...cashRegister, [date]: { ...(cashRegister[date] || {}), ...data } };
     setCashRegister(updated);
     await sSet('cash_register', updated);
     showToast("Kassa saqlandi");
@@ -611,6 +613,7 @@ function ChoyxonaHisobchi({ userEmail }) {
     if (data.cashRegister) { setCashRegister(data.cashRegister); await sSet('cash_register', data.cashRegister); }
     if (data.debts) { setDebts(data.debts); await sSet('debts', data.debts); }
     if (data.workers) { setWorkers(data.workers); await sSet('workers', data.workers); }
+    if (data.workerLedger) { setWorkerLedger(data.workerLedger); await sSet('worker_ledger', data.workerLedger); }
     if (data.tgConfig) { setTgConfig(data.tgConfig); await sSet('tg_config', data.tgConfig); }
     // Tranzaksiyalar — eski hammasini o'chirib, yangi to'plamni qo'yamiz
     if (data.transactions) {
@@ -624,6 +627,53 @@ function ChoyxonaHisobchi({ userEmail }) {
       }
       setTransactions(data.transactions);
     }
+  }
+
+  // Ishchi shaxsiy hisobi — ovqat/ichimlik (kassaga ta'sir qilmaydi, faqat hisob)
+  async function addLedgerEntry(entry) {
+    const e = { id: genId(), createdAt: Date.now(), ...entry };
+    const updated = [...workerLedger, e];
+    setWorkerLedger(updated);
+    const ok = await sSet('worker_ledger', updated);
+    const w = workers.find(x => x.id === entry.workerId);
+    audit('ledger_add', `Shaxsiy: ${w?.name || '?'} — ${entry.kind} ${fmt(entry.amount)}`);
+    if (ok !== false) showToast("Yozildi");
+  }
+  async function deleteLedgerEntry(id) {
+    const removed = workerLedger.find(e => e.id === id);
+    if (!removed) return;
+    const updated = workerLedger.filter(e => e.id !== id);
+    setWorkerLedger(updated);
+    await sSet('worker_ledger', updated);
+    audit('ledger_delete', `Shaxsiy yozuv o'chirildi`);
+    showToast("O'chirildi", 'success', {
+      label: 'Qaytarish',
+      onClick: () => {
+        setWorkerLedger(prev => { const n = [...prev, removed]; sSet('worker_ledger', n); return n; });
+      }
+    });
+  }
+
+  // Vaqtincha to'xtatish / faollashtirish — o'chirmaydi, statistika saqlanadi
+  async function toggleDrinkActive(id) {
+    const d = drinks.find(x => x.id === id);
+    if (!d) return;
+    const nowActive = d.active === false;
+    const updated = drinks.map(x => x.id === id ? { ...x, active: nowActive } : x);
+    setDrinks(updated);
+    await sSet('drinks', updated);
+    audit('drink_toggle', `${d.name}: ${nowActive ? 'faollashtirildi' : "vaqtincha to'xtatildi"}`);
+    showToast(nowActive ? `${d.name} — faollashtirildi` : `${d.name} — vaqtincha to'xtatildi`);
+  }
+  async function toggleWorkerActive(id) {
+    const w = workers.find(x => x.id === id);
+    if (!w) return;
+    const nowActive = w.active === false;
+    const updated = workers.map(x => x.id === id ? { ...x, active: nowActive } : x);
+    setWorkers(updated);
+    await sSet('workers', updated);
+    audit('worker_toggle', `${w.name}: ${nowActive ? 'ishga qaytdi' : "ta'tilga chiqdi"}`);
+    showToast(nowActive ? `${w.name} — ishga qaytdi` : `${w.name} — ta'tilga chiqarildi`);
   }
 
   async function addWorker(w) {
@@ -716,7 +766,12 @@ function ChoyxonaHisobchi({ userEmail }) {
   const drinkDayStats = useMemo(() => {
     const dayRec = drinkDaily[selectedDate] || {};
     let totalRevenue = 0, totalProfit = 0, totalSold = 0;
-    const perDrink = drinks.map(drink => {
+    const hasDayRecord = (id) => {
+      const r = dayRec[id];
+      return !!r && ['startStock', 'added', 'endStock'].some(k => r[k] !== undefined && r[k] !== null && r[k] !== '');
+    };
+    const visibleDrinks = drinks.filter(d => d.active !== false || hasDayRecord(d.id));
+    const perDrink = visibleDrinks.map(drink => {
       const rec = dayRec[drink.id] || {};
       const start = rec.startStock !== undefined && rec.startStock !== '' && rec.startStock !== null
         ? Number(rec.startStock) : getPrevEndStock(selectedDate, drink.id);
@@ -1047,10 +1102,18 @@ function ChoyxonaHisobchi({ userEmail }) {
             transactions={dayTransactions.filter(t => t.type === 'expense')}
             onAdd={addTransaction} onDelete={deleteTransaction} onAddCategory={addCategory} />
         )}
+        {activeTab === 'workers' && (
+          <WorkersTab date={selectedDate} categories={categories} workers={workers}
+            transactions={transactions}
+            dayTransactions={dayTransactions.filter(t => t.type === 'expense')}
+            workerLedger={workerLedger}
+            onAdd={addTransaction} onDelete={deleteTransaction}
+            onAddLedger={addLedgerEntry} onDeleteLedger={deleteLedgerEntry} />
+        )}
         {activeTab === 'drinks' && (
           <DrinksTab date={selectedDate} drinks={drinks} drinkDaily={drinkDaily}
             stats={drinkDayStats} onAdd={addDrink} onUpdate={updateDrink}
-            onDelete={deleteDrink} onMove={moveDrink} onSaveDay={saveDrinkDayRecord} />
+            onDelete={deleteDrink} onMove={moveDrink} onToggleActive={toggleDrinkActive} onSaveDay={saveDrinkDayRecord} />
         )}
         {activeTab === 'reports' && (
           <ReportsTab categories={categories} transactions={transactions}
@@ -1063,19 +1126,20 @@ function ChoyxonaHisobchi({ userEmail }) {
           <SettingsTab categories={categories} workers={workers} transactions={transactions}
             workerByName={workerByName}
             onAddCat={addCategory} onUpdateCat={updateCategory} onDeleteCat={deleteCategory}
-            onAddWorker={addWorker} onUpdateWorker={updateWorker} onDeleteWorker={deleteWorker}
+            onAddWorker={addWorker} onUpdateWorker={updateWorker} onDeleteWorker={deleteWorker} onToggleWorker={toggleWorkerActive}
             tgConfig={tgConfig} onSaveTgConfig={saveTgConfig} onToast={showToast}
-            drinks={drinks} drinkDaily={drinkDaily} cashRegister={cashRegister} debts={debts}
+            drinks={drinks} drinkDaily={drinkDaily} cashRegister={cashRegister} debts={debts} workerLedger={workerLedger}
             onImportData={importBackup} auditLog={auditLog} />
         )}
       </main>
 
       <nav className="fixed bottom-0 inset-x-0 bg-white dark:bg-slate-800 border-t border-stone-200 dark:border-slate-700 z-30" style={{ boxShadow: '0 -2px 12px rgba(0,0,0,0.06)' }}>
-        <div className="max-w-4xl mx-auto grid grid-cols-6">
+        <div className="max-w-4xl mx-auto grid grid-cols-7">
           {[
             { id: 'dashboard', icon: Home, label: 'Bosh' },
             { id: 'income', icon: TrendingUp, label: 'Tushum' },
             { id: 'expense', icon: TrendingDown, label: 'Chiqim' },
+            { id: 'workers', icon: Users, label: 'Ishchilar' },
             { id: 'drinks', icon: Package, label: 'Suvlar' },
             { id: 'reports', icon: BarChart3, label: 'Hisobot' },
             { id: 'settings', icon: SettingsIcon, label: 'Sozlama' },
@@ -1157,6 +1221,8 @@ function DashboardTab({ date, categories, transactions, stats, drinkStats, cashR
         expectedCash={stats.expectedCash}
         onSave={onSaveCash}
       />
+
+      <PocketBalanceCard date={date} categories={categories} stats={stats} cashRegister={cashRegister} />
 
       {(debtsStats.owedToUs > 0 || debtsStats.weOwe > 0) && (
         <div className="grid grid-cols-2 gap-3">
@@ -1363,6 +1429,7 @@ function CashRegisterCard({ date, cashRegister, totalIncome, totalCashless, cash
     ? existing.countedCash
     : (existing.endCash !== undefined && existing.endCash !== null ? existing.endCash : '');
   const [countedCash, setCountedCash] = useState(initialCounted);
+  const [cardCut, setCardCut] = useState(existing.cardCut ?? '');
   const [dirty, setDirty] = useState(false);
 
   // Faqat sana yoki saqlangan qiymat o'zgarsa input'ni yangilaymiz.
@@ -1373,21 +1440,26 @@ function CashRegisterCard({ date, cashRegister, totalIncome, totalCashless, cash
       ? ex.countedCash
       : (ex.endCash !== undefined && ex.endCash !== null ? ex.endCash : '');
   })();
+  const savedCard = (cashRegister[date] || {}).cardCut ?? '';
   const lastKeyRef = useRef('');
   useEffect(() => {
-    const key = `${date}:${savedValue}`;
+    const key = `${date}:${savedValue}:${savedCard}`;
     if (lastKeyRef.current === key) return;
     lastKeyRef.current = key;
     if (!dirty) {
       setCountedCash(savedValue);
+      setCardCut(savedCard);
     }
-  }, [date, savedValue]);
+  }, [date, savedValue, savedCard]);
 
   const counted = countedCash !== '' ? parseAmount(countedCash) : null;
   const diff = counted !== null ? counted - expectedCash : null;
 
   function save() {
-    onSave(date, { countedCash: countedCash === '' ? null : parseAmount(countedCash) });
+    onSave(date, {
+      countedCash: countedCash === '' ? null : parseAmount(countedCash),
+      cardCut: cardCut === '' ? null : parseAmount(cardCut),
+    });
     setDirty(false);
   }
 
@@ -1434,16 +1506,28 @@ function CashRegisterCard({ date, cashRegister, totalIncome, totalCashless, cash
           </div>
         </div>
 
-        <label className="block">
-          <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-            Kassada bugun yig'ilgan naqd pul
-          </span>
-          <input type="text" inputMode="decimal" value={countedCash}
-            onChange={(e) => { setCountedCash(e.target.value); setDirty(true); }}
-            placeholder="230000 yoki 230k"
-            onKeyDown={(e) => { if (e.key === "Enter" && dirty) save(); }}
-            className="w-full mt-1 px-3 py-2.5 border border-stone-300 dark:border-slate-600 rounded-lg text-base font-bold focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 outline-none" />
-        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block">
+            <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Kassadagi naqd pul
+            </span>
+            <input type="text" inputMode="decimal" value={countedCash}
+              onChange={(e) => { setCountedCash(e.target.value); setDirty(true); }}
+              placeholder="230000 / 230k"
+              onKeyDown={(e) => { if (e.key === "Enter" && dirty) save(); }}
+              className="w-full mt-1 px-3 py-2.5 border border-stone-300 dark:border-slate-600 rounded-lg text-base font-bold focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 outline-none bg-white dark:bg-slate-800" />
+          </label>
+          <label className="block">
+            <span className="text-[10px] font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-wider">
+              Plastikdan qirqilgan
+            </span>
+            <input type="text" inputMode="decimal" value={cardCut}
+              onChange={(e) => { setCardCut(e.target.value); setDirty(true); }}
+              placeholder="150000 / 150k"
+              onKeyDown={(e) => { if (e.key === "Enter" && dirty) save(); }}
+              className="w-full mt-1 px-3 py-2.5 border border-violet-300 dark:border-violet-700 rounded-lg text-base font-bold focus:border-violet-600 focus:ring-2 focus:ring-violet-100 outline-none bg-white dark:bg-slate-800" />
+          </label>
+        </div>
 
         {counted !== null && diff !== null && (
           <div className={`rounded-lg p-3 flex items-start gap-2 ${
@@ -1489,6 +1573,75 @@ const REPORT_TYPE_LABELS = {
   owner_detailed: "☕ To'liq — batafsil",
   full: '📋 Hammasi — har yozuv',
 };
+
+// ============================================================
+// IKKI CHO'NTAK BALANSI — Ovqat+Suv savdosi vs Plastikdan qirqilgan
+// ============================================================
+function PocketBalanceCard({ date, categories, stats, cashRegister }) {
+  const pocketCats = categories.income.filter(c => c.autoFromDrinks || /ovqat/i.test(c.name));
+  const pocketSum = pocketCats.reduce((s, c) => s + (stats.incomeByCategory[c.id] || 0), 0);
+  const raw = (cashRegister[date] || {}).cardCut;
+  const hasCard = raw !== undefined && raw !== null && raw !== '';
+  const cardCut = hasCard ? Number(raw) : 0;
+  const diff = pocketSum - cardCut;
+
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
+      <div className="bg-violet-50 dark:bg-violet-900/30 px-4 py-2.5 border-b border-stone-200 dark:border-slate-700 flex items-center gap-2">
+        <RefreshCw className="w-4 h-4 text-violet-700 dark:text-violet-300" />
+        <h3 className="text-sm font-semibold text-violet-900 dark:text-violet-100">Ikki cho'ntak balansi</h3>
+      </div>
+      <div className="p-4 space-y-3">
+        <div className="bg-stone-50 dark:bg-slate-900 rounded-lg p-3 text-xs space-y-1.5">
+          {pocketCats.map(c => (
+            <div key={c.id} className="flex justify-between">
+              <span className="text-slate-600 dark:text-slate-400">{c.icon} {c.name}:</span>
+              <span className="font-semibold text-slate-800 dark:text-slate-200">{fmt(stats.incomeByCategory[c.id] || 0)}</span>
+            </div>
+          ))}
+          <div className="flex justify-between pt-1.5 border-t border-stone-200 dark:border-slate-700">
+            <span className="font-semibold text-slate-800 dark:text-slate-200">Jami (ovqat + suv):</span>
+            <span className="font-bold text-slate-900 dark:text-slate-100">{fmtSom(pocketSum)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-violet-700 dark:text-violet-300 font-semibold">Plastikdan qirqilgan:</span>
+            <span className="font-bold text-violet-800 dark:text-violet-200">{hasCard ? fmtSom(cardCut) : '—'}</span>
+          </div>
+        </div>
+
+        {!hasCard ? (
+          <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 flex items-start gap-2">
+            <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-900 dark:text-amber-100">
+              Balansni ko'rish uchun yuqoridagi kassa kartasida <strong>«Plastikdan qirqilgan»</strong> summasini kiriting.
+            </p>
+          </div>
+        ) : diff === 0 ? (
+          <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3 flex items-start gap-2">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+            <p className="text-xs font-bold text-emerald-900 dark:text-emerald-100">✅ Balans teng — hech narsa ko'chirilmaydi.</p>
+          </div>
+        ) : diff > 0 ? (
+          <div className="bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800 rounded-lg p-3 flex items-start gap-2">
+            <ArrowUpRight className="w-5 h-5 text-rose-600 dark:text-rose-400 flex-shrink-0" />
+            <div className="text-xs flex-1">
+              <p className="font-bold text-rose-900 dark:text-rose-100">💵 {fmtSom(diff)} naqd pulda olib qo'yiladi</p>
+              <p className="mt-1 text-rose-700 dark:text-rose-300">Ovqat + suv savdosi plastikdan qirqilgan summadan ko'p — farq naqddan olinadi.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3 flex items-start gap-2">
+            <ArrowDownLeft className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+            <div className="text-xs flex-1">
+              <p className="font-bold text-emerald-900 dark:text-emerald-100">💵 {fmtSom(-diff)} naqd pul umumiy pulga qo'shiladi</p>
+              <p className="mt-1 text-emerald-700 dark:text-emerald-300">Plastikdan qirqilgan summa ovqat + suv savdosidan ko'p — farq naqdda umumiy pulga qo'shiladi.</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function TelegramQuickSend({ date, tgConfig, categories, transactions, stats, drinkStats, cashRegister, drinks, drinkDaily, workers, debts, onToast }) {
   const [sending, setSending] = useState(null);
@@ -1615,14 +1768,17 @@ function IncomeTab({ date, categories, transactions, onAdd, onDelete }) {
 // EXPENSE TAB
 // ============================================================
 function ExpenseTab({ date, categories, workers, transactions, onAdd, onDelete, onAddCategory }) {
-  const [openCat, setOpenCat] = useState(null);
+  const [openCats, setOpenCats] = useState(() => new Set());
+  const toggleCat = (id) => setOpenCats(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
   const [filterIncomeId, setFilterIncomeId] = useState('all');
   const [showNewCatForm, setShowNewCatForm] = useState(false);
 
-  // Ishchilar oyligi kategoriyalari (alohida bo'limga chiqarildi)
-  const salaryCategories = categories.expense.filter(c => c.trackPayee);
+  // Ishchilar oyligi endi alohida «Ishchilar» tabida — bu yerda faqat boshqa chiqimlar
   const otherCategories = categories.expense.filter(c => !c.trackPayee);
-  const activeWorkers = workers.filter(w => w.active !== false);
 
   const filteredCats = filterIncomeId === 'all'
     ? otherCategories
@@ -1636,17 +1792,25 @@ function ExpenseTab({ date, categories, workers, transactions, onAdd, onDelete, 
       </div>
       <p className="text-xs text-slate-500 dark:text-slate-400 -mt-2">Sana: {formatUzbDateFull(date)}</p>
 
-      {/* Ishchilar oyligi paneli — alohida bo'lim, eng yuqorida */}
-      {salaryCategories.map(cat => {
-        const catTxs = transactions.filter(t => t.categoryId === cat.id);
+      {/* Hammasini ochish/yopish */}
+      {filteredCats.length > 1 && (() => {
+        const allOpen = filteredCats.every(c => openCats.has(c.id));
         return (
-          <WorkerSalaryPanel key={cat.id}
-            cat={cat} date={date} workers={activeWorkers}
-            catTxs={catTxs}
-            onAdd={(data) => onAdd({ type: 'expense', categoryId: cat.id, ...data, date })}
-            onDelete={onDelete} />
+          <div className="flex justify-end">
+            <button type="button" onClick={() => {
+              setOpenCats(prev => {
+                const n = new Set(prev);
+                filteredCats.forEach(c => allOpen ? n.delete(c.id) : n.add(c.id));
+                return n;
+              });
+            }} className="text-xs font-medium text-rose-700 dark:text-rose-300 flex items-center gap-1 px-2 py-1">
+              {allOpen
+                ? <><ChevronUp className="w-3.5 h-3.5" />Hammasini yopish</>
+                : <><ChevronDown className="w-3.5 h-3.5" />Hammasini ochish</>}
+            </button>
+          </div>
         );
-      })}
+      })()}
 
       <button onClick={() => setShowNewCatForm(!showNewCatForm)}
         className="w-full bg-white dark:bg-slate-800 border-2 border-dashed border-stone-300 dark:border-slate-600 hover:border-emerald-500 hover:bg-emerald-50 dark:bg-emerald-900/30 text-slate-600 dark:text-slate-400 hover:text-emerald-700 dark:text-emerald-300 font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
@@ -1678,12 +1842,12 @@ function ExpenseTab({ date, categories, workers, transactions, onAdd, onDelete, 
       {filteredCats.map(cat => {
         const catTxs = transactions.filter(t => t.categoryId === cat.id);
         const total = catTxs.reduce((s, t) => s + Number(t.amount), 0);
-        const isOpen = openCat === cat.id;
+        const isOpen = openCats.has(cat.id);
         const linkedCat = categories.income.find(c => c.id === cat.linkedTo);
 
         return (
           <div key={cat.id} className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
-            <button onClick={() => setOpenCat(isOpen ? null : cat.id)}
+            <button onClick={() => toggleCat(cat.id)}
               className="w-full px-4 py-3 flex items-center justify-between gap-3 hover:bg-stone-50 dark:hover:bg-slate-800 dark:bg-slate-900 active:bg-stone-100 dark:active:bg-slate-700 dark:bg-slate-800 transition-colors">
               <div className="flex items-center gap-3 min-w-0 flex-1 text-left">
                 <div className="w-10 h-10 bg-rose-50 dark:bg-rose-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -1705,7 +1869,7 @@ function ExpenseTab({ date, categories, workers, transactions, onAdd, onDelete, 
             {isOpen && (
               <div className="border-t border-stone-200 dark:border-slate-700 bg-stone-50 dark:bg-slate-900 p-4">
                 <QuickAddForm expenseCat={cat} variant="expense" workers={workers}
-                  onSubmit={(data) => { onAdd({ type: 'expense', categoryId: cat.id, ...data, date }); setOpenCat(null); }} />
+                  onSubmit={(data) => { onAdd({ type: 'expense', categoryId: cat.id, ...data, date }); }} />
                 {catTxs.length > 0 && (
                   <div className="mt-4 space-y-1.5">
                     <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Bugungi yozuvlar</p>
@@ -1986,7 +2150,226 @@ function TxRow({ tx, onDelete, accent }) {
 // ============================================================
 // WORKER SALARY PANEL — alohida bo'lim, tahrirlanadi, bitta saqlash
 // ============================================================
-function WorkerSalaryPanel({ cat, date, workers, catTxs, onAdd, onDelete }) {
+// ============================================================
+// WORKERS TAB — Ishchilar: oylik + shaxsiy hisob (ovqat/ichimlik/pul)
+// ============================================================
+const LEDGER_KINDS = {
+  ovqat: { label: 'Ovqat yedi', icon: '🍲' },
+  ichimlik: { label: 'Ichimlik ichdi', icon: '🥤' },
+};
+function WorkersTab({ date, categories, workers, transactions, dayTransactions, workerLedger, onAdd, onDelete, onAddLedger, onDeleteLedger }) {
+  const [closedSalary, setClosedSalary] = useState(() => new Set());
+  const salaryCategories = categories.expense.filter(c => c.trackPayee);
+  const activeWorkers = workers.filter(w => w.active !== false);
+  const pausedCount = workers.length - activeWorkers.length;
+  const monthKey = date.slice(0, 7);
+  const MONTHS_UZ = ['Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr'];
+  const monthLabel = `${MONTHS_UZ[Number(date.slice(5,7)) - 1]} ${date.slice(0,4)}`;
+
+  const [selWorker, setSelWorker] = useState('');
+  const [kind, setKind] = useState('ovqat');
+  const [amount, setAmount] = useState('');
+  const [note, setNote] = useState('');
+
+  const salaryCatIds = new Set(salaryCategories.map(c => c.id));
+  const dayLedger = workerLedger.filter(e => e.date === date);
+  const monthLedger = workerLedger.filter(e => (e.date || '').startsWith(monthKey));
+  const monthSalaryTxs = transactions.filter(t =>
+    t.type === 'expense' && salaryCatIds.has(t.categoryId) && (t.date || '').startsWith(monthKey));
+
+  const wName = (id) => workers.find(w => w.id === id)?.name || '?';
+
+  function submitPersonal() {
+    const amt = parseAmount(amount);
+    if (!selWorker || !amt || amt <= 0) return;
+    if (kind === 'pul') {
+      const cat = salaryCategories[0];
+      if (!cat) return;
+      // Naqd pul olindi — avans sifatida oylik kategoriyasiga yoziladi (kassadan ayiriladi)
+      onAdd({ type: 'expense', categoryId: cat.id, amount: amt,
+        payeeWorkerId: selWorker, payee: wName(selWorker),
+        note: note || 'Avans (kun ichida olindi)', date });
+    } else {
+      // Ovqat/ichimlik — kassaga ta'sir qilmaydi, faqat shaxsiy hisobga yoziladi
+      onAddLedger({ workerId: selWorker, date, kind, amount: amt, note: note || '' });
+    }
+    setAmount(''); setNote('');
+  }
+
+  // Oylik jamlanma — vaqtincha to'xtatilgan ishchilar ham (shu oyda yozuvi bo'lsa) ko'rinadi
+  const monthly = workers.map(w => {
+    const paid = monthSalaryTxs
+      .filter(t => t.payeeWorkerId === w.id || (!t.payeeWorkerId && t.payee === w.name))
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+    const ovqat = monthLedger.filter(e => e.workerId === w.id && e.kind === 'ovqat')
+      .reduce((sum, e) => sum + Number(e.amount), 0);
+    const ichimlik = monthLedger.filter(e => e.workerId === w.id && e.kind === 'ichimlik')
+      .reduce((sum, e) => sum + Number(e.amount), 0);
+    return { w, paid, ovqat, ichimlik, personal: ovqat + ichimlik };
+  });
+  const monthlyRows = monthly.filter(m => m.paid > 0 || m.personal > 0);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 mb-2">
+        <Users className="w-5 h-5 text-amber-700 dark:text-amber-300" />
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Ishchilar</h2>
+      </div>
+      <p className="text-xs text-slate-500 dark:text-slate-400 -mt-2">Sana: {formatUzbDateFull(date)}</p>
+
+      {activeWorkers.length === 0 && (
+        <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4 text-xs text-amber-900 dark:text-amber-100">
+          Faol ishchi yo'q. <strong>Sozlama → Ishchilar</strong> bo'limida ishchi qo'shing yoki to'xtatilganini faollashtiring.
+        </div>
+      )}
+      {pausedCount > 0 && (
+        <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 px-1">
+          <PauseCircle className="w-3.5 h-3.5" />
+          {pausedCount} ta ishchi vaqtincha to'xtatilgan (ta'tilda) — bu yerda ko'rinmaydi, statistikasi saqlanadi.
+        </p>
+      )}
+
+      {/* Oylik berish panellari — mantiq avvalgidek, chiqim sifatida yoziladi */}
+      {salaryCategories.map(cat => {
+        const catTxs = dayTransactions.filter(t => t.categoryId === cat.id);
+        return (
+          <WorkerSalaryPanel key={cat.id}
+            cat={cat} date={date} workers={activeWorkers}
+            catTxs={catTxs}
+            collapsed={closedSalary.has(cat.id)}
+            onToggleCollapse={(v) => setClosedSalary(prev => { const n = new Set(prev); if (v) n.add(cat.id); else n.delete(cat.id); return n; })}
+            onAdd={(data) => onAdd({ type: 'expense', categoryId: cat.id, ...data, date })}
+            onDelete={onDelete} />
+        );
+      })}
+
+      {/* Shaxsiy hisob — ishchi kun ichida yeydi/ichadi/pul oladi */}
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
+        <div className="bg-sky-50 dark:bg-sky-900/30 px-4 py-2.5 border-b border-stone-200 dark:border-slate-700 flex items-center gap-2">
+          <HandCoins className="w-4 h-4 text-sky-700 dark:text-sky-300" />
+          <h3 className="text-sm font-semibold text-sky-900 dark:text-sky-100">Shaxsiy hisob (kun ichida)</h3>
+        </div>
+        <div className="p-4 space-y-3">
+          <div className="flex flex-wrap gap-1.5">
+            {activeWorkers.map(w => (
+              <button key={w.id} type="button" onClick={() => setSelWorker(w.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  selWorker === w.id ? 'bg-sky-700 text-white' : 'bg-stone-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                }`}>
+                {w.name}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-3 gap-1.5">
+            {[
+              ['pul', '💵 Pul oldi'],
+              ['ovqat', '🍲 Ovqat yedi'],
+              ['ichimlik', '🥤 Ichimlik'],
+            ].map(([k, label]) => (
+              <button key={k} type="button" onClick={() => setKind(k)}
+                className={`py-2 rounded-lg text-xs font-semibold transition-colors ${
+                  kind === k ? 'bg-sky-700 text-white' : 'bg-stone-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                }`}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <input type="text" inputMode="decimal" value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') submitPersonal(); }}
+              placeholder="Summa: 15000 / 15k"
+              className="min-w-0 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm font-semibold focus:border-sky-600 outline-none bg-white dark:bg-slate-800" />
+            <input type="text" value={note}
+              onChange={(e) => setNote(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') submitPersonal(); }}
+              placeholder="Izoh (ixtiyoriy)"
+              className="min-w-0 px-3 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm focus:border-sky-600 outline-none bg-white dark:bg-slate-800" />
+          </div>
+
+          <button onClick={submitPersonal}
+            disabled={!selWorker || !parseAmount(amount)}
+            className="w-full bg-sky-700 hover:bg-sky-800 disabled:opacity-40 text-white font-semibold py-2 rounded-lg flex items-center justify-center gap-2 text-sm">
+            <Plus className="w-4 h-4" />Yozish
+          </button>
+
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+            <strong>💵 Pul oldi</strong> — avans: chiqim sifatida yoziladi, kassadan ayiriladi.{' '}
+            <strong>🍲 Ovqat / 🥤 Ichimlik</strong> — kassaga ta'sir qilmaydi, faqat oylik hisobga yozib boriladi.
+          </p>
+
+          {dayLedger.length > 0 && (
+            <div className="space-y-1.5 pt-1">
+              <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Bugungi yozuvlar</p>
+              {dayLedger.map(e => (
+                <div key={e.id} className="flex items-center justify-between gap-2 bg-stone-50 dark:bg-slate-900 rounded-lg px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
+                      {LEDGER_KINDS[e.kind]?.icon} {wName(e.workerId)} — {LEDGER_KINDS[e.kind]?.label}
+                    </p>
+                    {e.note && <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{e.note}</p>}
+                  </div>
+                  <span className="text-xs font-bold text-sky-700 dark:text-sky-300 flex-shrink-0">{fmtSom(e.amount)}</span>
+                  <button type="button" onClick={() => onDeleteLedger(e.id)}
+                    className="p-1 text-slate-400 dark:text-slate-500 hover:text-rose-600 flex-shrink-0">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Oylik jamlanma */}
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
+        <div className="bg-stone-50 dark:bg-slate-900 px-4 py-2.5 border-b border-stone-200 dark:border-slate-700 flex items-center gap-2">
+          <BarChart3 className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Oylik jamlanma — {monthLabel}</h3>
+        </div>
+        <div className="p-3">
+          {monthlyRows.length === 0 ? (
+            <p className="text-xs text-slate-500 dark:text-slate-400 text-center py-2">Bu oyda hali yozuvlar yo'q.</p>
+          ) : (
+            <div className="space-y-2">
+              <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase px-2">
+                <span>Ishchi</span><span className="text-right">Berilgan</span><span className="text-right">Ovqat</span><span className="text-right">Ichimlik</span>
+              </div>
+              {monthlyRows.map(({ w, paid, ovqat, ichimlik }) => (
+                <div key={w.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center bg-stone-50 dark:bg-slate-900 rounded-lg px-2 py-2">
+                  <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
+                    {w.name}
+                    {w.active === false && <span className="ml-1 text-[9px] bg-stone-200 dark:bg-slate-700 text-stone-600 dark:text-slate-300 px-1 py-0.5 rounded font-bold">TA'TILDA</span>}
+                  </p>
+                  <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 text-right">{paid > 0 ? fmt(paid) : '—'}</span>
+                  <span className="text-xs font-semibold text-amber-700 dark:text-amber-300 text-right">{ovqat > 0 ? fmt(ovqat) : '—'}</span>
+                  <span className="text-xs font-semibold text-sky-700 dark:text-sky-300 text-right">{ichimlik > 0 ? fmt(ichimlik) : '—'}</span>
+                </div>
+              ))}
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 px-2">
+                Ovqat/ichimlik summalari kassadan ayirilmagan — oylik berishda hisobga olishingiz mumkin.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WorkerSalaryPanel({ cat, date, workers, catTxs, onAdd, onDelete, collapsed: collapsedProp, onToggleCollapse }) {
+  // Yig'ish/ochish — tashqaridan boshqarilsa prop, aks holda ichki holat
+  const [collapsedLocal, setCollapsedLocal] = useState(false);
+  const collapsed = collapsedProp !== undefined ? collapsedProp : collapsedLocal;
+  const setCollapsed = (v) => { if (onToggleCollapse) onToggleCollapse(v); else setCollapsedLocal(v); };
+  // Spoiler: hammasini yoki alohida ishchini yashirish
+  const [hideAll, setHideAll] = useState(false);
+  const [hiddenWorkers, setHiddenWorkers] = useState({});
+  const toggleWorkerHidden = (id) => setHiddenWorkers(prev => ({ ...prev, [id]: !prev[id] }));
+  const isHidden = (id) => hideAll || !!hiddenWorkers[id];
+  const mask = (v, hidden) => hidden ? '•••••' : fmtSom(v);
   // Bugun har ishchiga qancha to'langan (workerId yoki ism orqali)
   const todayByWorker = useMemo(() => {
     const m = {};
@@ -2082,12 +2465,25 @@ function WorkerSalaryPanel({ cat, date, workers, catTxs, onAdd, onDelete }) {
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
-      <div className="bg-amber-50 dark:bg-amber-900/30 px-4 py-3 border-b border-stone-200 dark:border-slate-700 flex items-center gap-2">
+      <div className={`bg-amber-50 dark:bg-amber-900/30 px-4 py-3 flex items-center gap-2 ${collapsed ? '' : 'border-b border-stone-200 dark:border-slate-700'}`}>
         <Users className="w-4 h-4 text-amber-700 dark:text-amber-300" />
         <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-100 flex-1">{cat.name}</h3>
-        {hasChanges && <span className="text-[9px] bg-amber-200 text-amber-900 dark:text-amber-100 px-1.5 py-0.5 rounded font-bold">{dirtyWorkers.length} ta o'zgarish</span>}
+        {hasChanges && <span className="text-[9px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded font-bold">{dirtyWorkers.length} ta o'zgarish</span>}
+        <button type="button" tabIndex={-1} onMouseDown={(e) => e.preventDefault()}
+          onClick={() => setHideAll(!hideAll)}
+          title={hideAll ? "Summalarni ko'rsatish" : "Hamma summalarni yashirish"}
+          className={`w-8 h-8 flex items-center justify-center rounded-lg ${hideAll ? 'bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100' : 'text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50'}`}>
+          {hideAll ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+        </button>
+        <button type="button" tabIndex={-1} onMouseDown={(e) => e.preventDefault()}
+          onClick={() => setCollapsed(!collapsed)}
+          title={collapsed ? 'Ochish' : 'Yopish'}
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50">
+          {collapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+        </button>
       </div>
 
+      {!collapsed && (
       <div className="p-4 space-y-2">
         {workers.length === 0 && (
           <p className="text-center text-sm text-slate-400 dark:text-slate-500 py-4">
@@ -2098,9 +2494,10 @@ function WorkerSalaryPanel({ cat, date, workers, catTxs, onAdd, onDelete }) {
         {workers.map(w => {
           const todayPaid = todayByWorker[w.id] || 0;
           const inputVal = amounts[w.id] || '';
-          const isDirty = Number(inputVal || 0) !== todayPaid;
+          const isDirty = parseAmount(inputVal || 0) !== todayPaid;
+          const hidden = isHidden(w.id);
           return (
-            <div key={w.id} className={`grid grid-cols-[auto_1fr_2fr] gap-2 items-center p-2 rounded-lg ${isDirty ? 'bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800' : 'bg-stone-50 dark:bg-slate-900'}`}>
+            <div key={w.id} className={`grid grid-cols-[auto_1fr_2fr_auto] gap-2 items-center p-2 rounded-lg ${isDirty ? 'bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800' : 'bg-stone-50 dark:bg-slate-900'}`}>
               {w.code ? (
                 <span className="text-[10px] bg-stone-200 dark:bg-slate-700 text-stone-700 font-mono px-1.5 py-1 rounded font-bold">{w.code}</span>
               ) : (
@@ -2110,13 +2507,26 @@ function WorkerSalaryPanel({ cat, date, workers, catTxs, onAdd, onDelete }) {
               )}
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{w.name}</p>
-                {todayPaid > 0 && <p className="text-[10px] text-emerald-700 dark:text-emerald-300">Bugun: {fmtSom(todayPaid)}</p>}
+                {todayPaid > 0 && <p className="text-[10px] text-emerald-700 dark:text-emerald-300">Bugun: {mask(todayPaid, hidden)}</p>}
               </div>
-              <input type="text" inputMode="decimal" value={inputVal}
+              <input type={hidden ? "password" : "text"} inputMode="decimal" value={inputVal}
                 onChange={(e) => setAmounts(prev => ({ ...prev, [w.id]: e.target.value }))}
                 onKeyDown={(e) => { if (e.key === 'Enter') saveAll(); }}
-                placeholder="0"
-                className="px-2 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm font-semibold text-right focus:border-amber-600 outline-none bg-white dark:bg-slate-800" />
+                placeholder="0" autoComplete="off"
+                className="min-w-0 px-2 py-2 border border-stone-300 dark:border-slate-600 rounded-lg text-sm font-semibold text-right focus:border-amber-600 outline-none bg-white dark:bg-slate-800" />
+              {/* Spoiler ko'zi — input'dan keyin, alohida ustun, doim bir xil o'lcham, TAB'ga kirmaydi */}
+              <button type="button" tabIndex={-1}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => toggleWorkerHidden(w.id)}
+                disabled={hideAll}
+                title={hideAll ? "Hammasi yashirilgan" : (hiddenWorkers[w.id] ? "Ko'rsatish" : "Yashirish")}
+                className={`w-9 h-9 flex items-center justify-center rounded-lg border flex-shrink-0 transition-colors ${
+                  hidden
+                    ? 'bg-amber-100 dark:bg-amber-900/50 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300'
+                    : 'bg-white dark:bg-slate-800 border-stone-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:text-amber-600 hover:border-amber-400'
+                } disabled:opacity-60 disabled:cursor-default`}>
+                {hidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           );
         })}
@@ -2162,7 +2572,7 @@ function WorkerSalaryPanel({ cat, date, workers, catTxs, onAdd, onDelete }) {
           <div className="mt-4 pt-3 border-t border-stone-200 dark:border-slate-700">
             <div className="flex items-center justify-between mb-2">
               <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Bugun berilgan</p>
-              <p className="text-[11px] font-bold text-amber-800 dark:text-amber-200">Jami: {fmtSom(todayTotal)}</p>
+              <p className="text-[11px] font-bold text-amber-800 dark:text-amber-200">Jami: {hideAll ? '•••••' : fmtSom(todayTotal)}</p>
             </div>
             <div className="space-y-1">
               {todayPaymentsList.map(t => {
@@ -2176,8 +2586,8 @@ function WorkerSalaryPanel({ cat, date, workers, catTxs, onAdd, onDelete }) {
                       {codeStr && <span className="font-mono text-stone-600">{codeStr}</span>}
                       <span className="font-medium">{t.payee || '—'}</span>
                     </span>
-                    <span className="font-bold text-amber-800 dark:text-amber-200 whitespace-nowrap">{fmtSom(t.amount)}</span>
-                    <button onClick={() => onDelete(t.id)} className="text-slate-300 dark:text-slate-600 hover:text-rose-600 dark:text-rose-400 p-0.5">
+                    <span className="font-bold text-amber-800 dark:text-amber-200 whitespace-nowrap">{mask(t.amount, t.payeeWorkerId ? isHidden(t.payeeWorkerId) : hideAll)}</span>
+                    <button type="button" tabIndex={-1} onClick={() => onDelete(t.id)} className="text-slate-300 dark:text-slate-600 hover:text-rose-600 dark:text-rose-400 p-0.5">
                       <X className="w-3 h-3" />
                     </button>
                   </div>
@@ -2187,10 +2597,12 @@ function WorkerSalaryPanel({ cat, date, workers, catTxs, onAdd, onDelete }) {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
-function DrinksTab({ date, drinks, drinkDaily, stats, onAdd, onUpdate, onDelete, onMove, onSaveDay }) {
+function DrinksTab({ date, drinks, drinkDaily, stats, onAdd, onUpdate, onDelete, onMove, onToggleActive, onSaveDay }) {
+  const pausedDrinks = drinks.filter(d => d.active === false).length;
   const [view, setView] = useState('daily');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -2229,6 +2641,12 @@ function DrinksTab({ date, drinks, drinkDaily, stats, onAdd, onUpdate, onDelete,
                   <div><p className="text-[11px] opacity-70">Sof foyda</p><p className="text-sm font-semibold">{fmtSom(stats.totalProfit)}</p></div>
                 </div>
               </div>
+              {pausedDrinks > 0 && (
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 px-1">
+                  <PauseCircle className="w-3.5 h-3.5" />
+                  {pausedDrinks} ta suv vaqtincha to'xtatilgan — bu yerda ko'rinmaydi, statistikasi saqlanadi.
+                </p>
+              )}
               {stats.perDrink.map(({ drink, start, added, end }) => (
                 <DrinkDayCard key={drink.id} drink={drink} start={start} added={added} end={end} date={date}
                   onSave={(rec) => onSaveDay(date, drink.id, rec)} />
@@ -2247,10 +2665,10 @@ function DrinksTab({ date, drinks, drinkDaily, stats, onAdd, onUpdate, onDelete,
           {showAddForm && <DrinkForm onSubmit={(data) => { onAdd(data); setShowAddForm(false); }} onCancel={() => setShowAddForm(false)} />}
           {drinks.length === 0 && !showAddForm && <div className="text-center py-8 text-slate-400 dark:text-slate-500 text-sm">Hali suv qo'shilmagan</div>}
           {drinks.length > 1 && (
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 px-1">Tartibni o'zgartirish uchun ↑↓ tugmalaridan foydalaning. Bu tartib kunlik hisobda ham qo'llanadi.</p>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 px-1">Tartib: ↑↓ tugmalari. Hozircha sotilmayotgan suvni o'chirmang — sariq <strong>to'xtatish</strong> tugmasini bosing, statistikasi saqlanadi.</p>
           )}
           {drinks.map((drink, idx) => (
-            <div key={drink.id} className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
+            <div key={drink.id} className={`bg-white dark:bg-slate-800 rounded-xl border overflow-hidden ${drink.active === false ? 'border-dashed border-stone-300 dark:border-slate-600 opacity-70' : 'border-stone-200 dark:border-slate-700'}`}>
               {editingId === drink.id ? (
                 <DrinkForm initial={drink} onSubmit={(data) => { onUpdate(drink.id, data); setEditingId(null); }} onCancel={() => setEditingId(null)} />
               ) : (
@@ -2271,6 +2689,7 @@ function DrinksTab({ date, drinks, drinkDaily, stats, onAdd, onUpdate, onDelete,
                       <div className="flex items-center gap-2 flex-wrap">
                         {drink.code && <span className="text-[10px] bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-mono px-1.5 py-0.5 rounded font-bold">{drink.code}</span>}
                         <p className="font-semibold text-slate-900 dark:text-slate-100">{drink.name}</p>
+                        {drink.active === false && <span className="text-[9px] bg-stone-200 dark:bg-slate-700 text-stone-600 dark:text-slate-300 px-1.5 py-0.5 rounded font-bold">TO'XTATILGAN</span>}
                       </div>
                       <div className="grid grid-cols-3 gap-2 mt-3">
                         <div className="bg-stone-50 dark:bg-slate-900 rounded-lg p-2"><p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">Tan narx</p><p className="text-sm font-bold text-slate-900 dark:text-slate-100">{fmt(drink.purchasePrice)}</p></div>
@@ -2279,6 +2698,11 @@ function DrinksTab({ date, drinks, drinkDaily, stats, onAdd, onUpdate, onDelete,
                       </div>
                     </div>
                     <div className="flex flex-col gap-1.5 flex-shrink-0">
+                      <button onClick={() => onToggleActive(drink.id)}
+                        title={drink.active === false ? 'Faollashtirish' : "Vaqtincha to'xtatish"}
+                        className={`p-2 rounded-lg ${drink.active === false ? 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30' : 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30'}`}>
+                        {drink.active === false ? <PlayCircle className="w-4 h-4" /> : <PauseCircle className="w-4 h-4" />}
+                      </button>
                       <button onClick={() => setEditingId(drink.id)} className="p-2 text-slate-500 dark:text-slate-400 hover:bg-stone-100 dark:hover:bg-slate-700 rounded-lg"><Edit3 className="w-4 h-4" /></button>
                       <button onClick={() => onDelete(drink.id)} className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg"><Trash2 className="w-4 h-4" /></button>
                     </div>
@@ -3180,8 +3604,8 @@ function ChartsLoader({ children }) {
 // ============================================================
 // SETTINGS TAB
 // ============================================================
-function SettingsTab({ categories, workers, transactions, workerByName, onAddCat, onUpdateCat, onDeleteCat, onAddWorker, onUpdateWorker, onDeleteWorker, tgConfig, onSaveTgConfig, onToast,
-  drinks, drinkDaily, cashRegister, debts, onImportData, auditLog }) {
+function SettingsTab({ categories, workers, transactions, workerByName, onAddCat, onUpdateCat, onDeleteCat, onAddWorker, onUpdateWorker, onDeleteWorker, onToggleWorker, tgConfig, onSaveTgConfig, onToast,
+  drinks, drinkDaily, cashRegister, debts, workerLedger, onImportData, auditLog }) {
   const [section, setSection] = useState('categories');
 
   return (
@@ -3219,7 +3643,7 @@ function SettingsTab({ categories, workers, transactions, workerByName, onAddCat
       )}
       {section === 'workers' && (
         <WorkersSection workers={workers} transactions={transactions} workerByName={workerByName}
-          onAdd={onAddWorker} onUpdate={onUpdateWorker} onDelete={onDeleteWorker} />
+          onAdd={onAddWorker} onUpdate={onUpdateWorker} onDelete={onDeleteWorker} onToggle={onToggleWorker} />
       )}
       {section === 'telegram' && (
         <TelegramSection config={tgConfig} onSave={onSaveTgConfig} onToast={onToast} />
@@ -3227,7 +3651,7 @@ function SettingsTab({ categories, workers, transactions, workerByName, onAddCat
       {section === 'backup' && (
         <BackupSection
           categories={categories} transactions={transactions} drinks={drinks} drinkDaily={drinkDaily}
-          cashRegister={cashRegister} debts={debts} workers={workers} tgConfig={tgConfig}
+          cashRegister={cashRegister} debts={debts} workers={workers} workerLedger={workerLedger} tgConfig={tgConfig}
           onImport={onImportData} onToast={onToast} />
       )}
       {section === 'audit' && (
@@ -3332,7 +3756,7 @@ function AuditSection({ auditLog }) {
 // ============================================================
 // BACKUP SECTION (Phase 1)
 // ============================================================
-function BackupSection({ categories, transactions, drinks, drinkDaily, cashRegister, debts, workers, tgConfig, onImport, onToast }) {
+function BackupSection({ categories, transactions, drinks, drinkDaily, cashRegister, debts, workers, workerLedger, tgConfig, onImport, onToast }) {
   const [importing, setImporting] = useState(false);
   const [confirmRestore, setConfirmRestore] = useState(null);
   const [diag, setDiag] = useState(null);
@@ -3354,7 +3778,7 @@ function BackupSection({ categories, transactions, drinks, drinkDaily, cashRegis
 
   async function handleExportJSON() {
     const { exportJSON } = await import('./backup.js');
-    exportJSON({ categories, transactions, drinks, drinkDaily, cashRegister, debts, workers, tgConfig });
+    exportJSON({ categories, transactions, drinks, drinkDaily, cashRegister, debts, workers, workerLedger, tgConfig });
     onToast("Backup yuklab olindi");
   }
   async function handleExportCSV() {
@@ -3720,13 +4144,14 @@ function CategoryForm({ type, incomeCategories, initial, onSubmit, onCancel }) {
 // ============================================================
 // WORKERS SECTION — ID-orientirovka (#A)
 // ============================================================
-function WorkersSection({ workers, transactions, workerByName, onAdd, onUpdate, onDelete }) {
+function WorkersSection({ workers, transactions, workerByName, onAdd, onUpdate, onDelete, onToggle }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [historyFor, setHistoryFor] = useState(null);
 
   const sorted = [...workers].sort((a, b) => {
-    if (a.active !== b.active) return a.active ? -1 : 1;
+    const aa = a.active !== false, ba = b.active !== false;
+    if (aa !== ba) return aa ? -1 : 1;
     return a.name.localeCompare(b.name);
   });
 
@@ -3746,13 +4171,13 @@ function WorkersSection({ workers, transactions, workerByName, onAdd, onUpdate, 
 
       <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2 text-[11px] text-amber-900 dark:text-amber-100 flex items-start gap-2">
         <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
-        <span>Ishchilarni qo'shganingizdan keyin <strong>Chiqim</strong> tabida "Ishchilar oyligi" bo'limida ularning ismi avtomatik tanlanadi. Ism o'zgartirilsa ham, ID orqali statistika saqlanadi.</span>
+        <span>Ishchilar <strong>Ishchilar</strong> tabida ko'rinadi. Ta'tilga chiqqan ishchini o'chirmang — sariq <strong>to'xtatish</strong> tugmasini bosing: ro'yxatdan vaqtincha yashiriladi, oylik tarixi va statistikasi saqlanadi.</span>
       </div>
 
       {sorted.length === 0 && <div className="text-center py-8 text-slate-400 dark:text-slate-500 text-sm">Hali ishchi qo'shilmagan</div>}
 
       {sorted.map(w => (
-        <div key={w.id} className="bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 overflow-hidden">
+        <div key={w.id} className={`bg-white dark:bg-slate-800 rounded-xl border overflow-hidden ${w.active === false ? 'border-dashed border-stone-300 dark:border-slate-600' : 'border-stone-200 dark:border-slate-700'}`}>
           {editingId === w.id ? (
             <WorkerForm initial={w}
               onSubmit={(data) => { onUpdate(w.id, data); setEditingId(null); }}
@@ -3768,12 +4193,19 @@ function WorkersSection({ workers, transactions, workerByName, onAdd, onUpdate, 
                     <div className="flex items-center gap-2 flex-wrap">
                       {w.code && <span className="text-[10px] bg-stone-200 dark:bg-slate-700 text-stone-700 font-mono px-1.5 py-0.5 rounded font-bold">{w.code}</span>}
                       <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{w.name}</p>
-                      {!w.active && <span className="text-[9px] bg-stone-200 dark:bg-slate-700 text-stone-600 px-1.5 py-0.5 rounded font-bold">FAOL EMAS</span>}
+                      {w.active === false && <span className="text-[9px] bg-stone-200 dark:bg-slate-700 text-stone-600 dark:text-slate-300 px-1.5 py-0.5 rounded font-bold">TA'TILDA</span>}
                     </div>
                     {w.position && <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{w.position}</p>}
                   </div>
                 </div>
                 <div className="flex flex-col gap-1.5 flex-shrink-0">
+                  {onToggle && (
+                    <button onClick={() => onToggle(w.id)}
+                      title={w.active === false ? 'Ishga qaytarish' : "Ta'tilga chiqarish (vaqtincha to'xtatish)"}
+                      className={`p-2 rounded-lg ${w.active === false ? 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30' : 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30'}`}>
+                      {w.active === false ? <PlayCircle className="w-4 h-4" /> : <PauseCircle className="w-4 h-4" />}
+                    </button>
+                  )}
                   <button onClick={() => setEditingId(w.id)} className="p-2 text-slate-500 dark:text-slate-400 hover:bg-stone-100 dark:hover:bg-slate-700 dark:bg-slate-800 rounded-lg"><Edit3 className="w-4 h-4" /></button>
                   <button onClick={() => onDelete(w.id)} className="p-2 text-rose-500 hover:bg-rose-50 dark:bg-rose-900/30 rounded-lg"><Trash2 className="w-4 h-4" /></button>
                 </div>

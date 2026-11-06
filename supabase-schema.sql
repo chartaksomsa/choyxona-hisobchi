@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS public.app_data (
   cash_register  jsonb,
   tg_config      jsonb,
   workers        jsonb,
+  worker_ledger  jsonb,
   debts          jsonb,
   audit_log      jsonb,
   updated_at     timestamptz DEFAULT now()
@@ -29,6 +30,7 @@ CREATE TABLE IF NOT EXISTS public.app_data (
 
 -- Agar jadval avval yaratilgan bo'lsa, yangi ustunlarni qo'shamiz (idempotent)
 ALTER TABLE public.app_data ADD COLUMN IF NOT EXISTS audit_log jsonb;
+ALTER TABLE public.app_data ADD COLUMN IF NOT EXISTS worker_ledger jsonb;
 
 ALTER TABLE public.app_data ENABLE ROW LEVEL SECURITY;
 
